@@ -1,0 +1,203 @@
+/* fonts... */
+@font-face {
+	font-family: '';
+	src: url('/fonts/.eot');
+	src: local('☺'), url('/fonts/.ttf') format('truetype');
+	font-weight: normal;
+	font-style: normal;
+}
+/* ...fonts */
+
+/* macro... */
+body {
+	background: white;
+	color: #333;
+	font: normal 16px/22px Helvetica, Arial, Verdana, sans-serif;
+	margin: 0;
+	padding: 0;
+}
+
+a {
+  text-decoration: none;
+  border-bottom: 1px solid #333;
+  color: #333;
+}
+
+a:hover,
+a:active {
+  color: white;
+  background: black;
+}
+
+img,
+object,
+embed {
+  max-width: 100%;
+}
+
+::selection         { color: white; background: black; }
+::-moz-selection    { color: white; background: black; }
+img::selection      { background: transparent; }
+img::-moz-selection { background: transparent; }
+
+abbr {
+	cursor: help;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: .5em 0;
+}
+
+article > header hgroup { padding: 0 50px; }
+article > header .vcard { padding: 0 50px; }
+article > section       { padding: 0 50px; max-width: 700px; }
+article > footer        { padding: .5em 50px; }
+/* ...macro */
+
+
+
+
+/* header... */
+header[role="banner"] {
+  background: black;
+  background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#333), to(black));
+  background: -moz-linear-gradient(center bottom, #333 0%, black 100%);
+  padding: 50px;
+  color: white;
+}
+
+header[role="banner"] a {
+  color: white;
+}
+
+header[role="banner"] h1 {
+  font-size: 500%;
+  line-height: .8em;
+  margin: 0;
+  padding: 0;
+}
+
+header[role="banner"] h2 {
+  line-height: .8em;
+  font-weight: normal;
+  font-family: times, serif;
+  color: #eee;
+  margin: 0;
+  margin-top: .75em;
+}
+/* ...header */
+
+/* feed... */
+.hfeed,
+.hfeed li {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+/* ...feed */
+
+/* article... */
+article {
+  margin-bottom: 3em;
+}
+
+/* header... */
+article header hgroup {
+  display: block;
+  background: #666;
+  background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#999), to(#666));
+  background: -moz-linear-gradient(center bottom, #999 0%, #666 100%);
+  border-top:    1px solid #999;
+  border-bottom: 1px solid #333;
+  padding-top:    1em;
+  padding-bottom: 1em;
+}
+
+header > a[rel="bookmark"],
+header > a[rel="bookmark"]:visited {
+  text-decoration: none;
+  border: none;
+  color: white;
+}
+
+article header h1,
+article header h2 {
+  font-family: Helvetica;
+  font-size: 300%;
+  letter-spacing: -.04em;
+  line-height: 1em;
+  margin: 0;
+  padding: 0;
+  text-shadow: 0px -1px 0px #333;
+}
+
+article header h2 {
+  font-size: 100%;
+  font-weight: normal;
+}
+
+article header .vcard {
+  margin: .75em 0 .5em 0;
+  font-weight: normal;
+  font-family: georgia, times, serif;
+  font-size: 80%;
+  color: #999;
+}
+
+article header .vcard a {
+  color: #999;
+  border-bottom-color: #999;
+}
+/* ...header */
+
+/* content... */
+.entry-content p {
+  margin: .5em 0;
+}
+
+.entry-content ul li {
+  list-style-type: disc;
+}
+
+.entry-content ol li {
+  list-style-type: decimal;
+}
+
+.entry-content blockquote {
+  border-left: 1px solid #ccc;
+  color: #666;
+  padding-left: 1em;
+}
+
+.entry-content blockquote a {
+  color: #666;
+  border-bottom: 1px solid #666;
+}
+/* ...content */
+
+/* footer... */
+article footer {
+  margin-top: 2em;
+  background: #eee;
+  font-size: 12px;
+}
+/* ...footer */
+/* ...article */
+
+/* site footer... */
+footer[role="contentinfo"] {
+  font-size: 66%;
+  text-align: center;
+  color: #999;
+}
+
+footer[role="contentinfo"] a {
+  color: #999;
+  border-bottom: 1px solid #999;
+}
+/* ...site footer */

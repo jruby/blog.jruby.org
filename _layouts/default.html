@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    {% if page.title == site.title %}
+      {{ site.title }}
+    {% else %}
+      {{ site.title }} : {{ page.title }}
+    {% endif %}
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>{{ site.title }}</h1>
+        <h2>{{ site.subtitle }}</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  {{ content }}
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+<!-- Google Analytics -->
+<script>
+  var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+  document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js'%3E%3C/script%3E"));
+</script>
+<script>
+  var pageTracker = _gat._getTracker("UA-xxxyyy-zz");
+  pageTracker._trackPageview();
+</script>
+<!-- Google Analytics end -->
+</body>
+</html>

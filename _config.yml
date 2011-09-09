@@ -1,0 +1,5 @@
+pygments: true
+permalink: /:year/:month/:title	
+title: JRuby
+subtitle: 100% Pure-Java Implementation of the Ruby Programming Language
+url: http://blog.jruby.org
