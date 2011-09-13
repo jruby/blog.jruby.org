@@ -6,7 +6,8 @@ email: nicksieger@gmail.com
 ---
 With the advent of our new [jruby.org blog](http://blog.jruby.org)
 comes a new software release. Our JDBC-based adapter for ActiveRecord
-is now compatible with the [Rails 3.1 release][rails31].
+is now compatible with the [Rails 3.1 release][rails31]. AR-JDBC is
+also tested to be compatible with 2.3.x and 3.0.x.
 
 Install it as usual with `gem install activerecord-jdbc-adapter`.
 
