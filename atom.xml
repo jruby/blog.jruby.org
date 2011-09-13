@@ -12,7 +12,7 @@ permalink: feed
   <id>{{ site.url }}/</id>
   <author>
     <name>Charles Nutter, Nick Sieger, Thomas Enebo, Shane Becker</name>
-    <email>cnutter@engineyard.com, nsieger@engineyard.com, tenebo@engineyard.com, veganstraightedge@gmail.com</email>
+    <email>cnutter@engineyard.com, nick@nicksieger.com, tenebo@engineyard.com, veganstraightedge@gmail.com</email>
   </author>
 
   {% for post in site.posts %}
