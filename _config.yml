@@ -1,5 +1,5 @@
 pygments: true
 permalink: /:year/:month/:title	
 title: The JRuby Blog
-subtitle: 100% Pure-Java Implementation of the Ruby Programming Language
+subtitle: The Ruby Programming Language on the JVM
 url: http://blog.jruby.org
