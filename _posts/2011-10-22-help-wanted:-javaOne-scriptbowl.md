@@ -1,6 +1,6 @@
 ---
 layout: post
-title: HELP WANTED: JavaOne Script Bowl Demos
+title: HELP WANTED JavaOne Script Bowl Demos
 author: Thomas E. Enebo
 email: tom.enebo@gmail.com
 ---
