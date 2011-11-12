@@ -9,7 +9,7 @@ At any one time there always seems to be a number of conferences coming up or ta
 
 ## But First, JRubyConf Is Coming! ##
 
-As was [announced on Twitter](https://twitter.com/#!/JRubyConf/status/134019937818771456), JRubyConf 2012 will be taking place in Minneapolis, Minnesota from May 21st - 23rd. The JRuby team has some great things planned, so be sure to keep your eyes on the [@JrubyConf](https://twitter.com/#!/JRubyConf) account for more updates. 
+As was [announced on Twitter](https://twitter.com/#!/JRubyConf/status/134019937818771456), JRubyConf 2012 will be taking place in Minneapolis, Minnesota from May 21st - 23rd. The JRuby team has some great things planned, so be sure to keep your eyes on the [@JRubyConf](https://twitter.com/#!/JRubyConf) account for more updates.
 
 ## StarTech Conf ##
 
@@ -25,17 +25,17 @@ Wonder how a site like NetFlix recommends movies to users? Matt Kirk discusses h
 
 ### High Performance Ruby: Threading versus Evented ###
 
-While not specific to JRuby, Dr. Nic takes a look at the often debated topic of threaded versus evented when dealing with high performance Ruby. In particular JRuby is mentioned for how it handles the threaded concurrency issue. Slides are available on [Slideshare](http://speakerdeck.com/u/drnic/p/high-performance-ruby-threading-versus-evented-ruby-midwest-edition) for viewing (there's also a PDF download link).
+While not specific to JRuby, Dr. Nic takes a look at the often debated topic of threaded versus evented when dealing with high performance Ruby. In particular JRuby is mentioned for how it handles the threaded concurrency issue. Slides are available on [Slideshare](http://speakerdeck.com/u/drnic/p/high-performance-ruby-threading-versus-evented-ruby-midwest-edition) for viewing (there's also a PDF download link). There's also a [recorded video of a previous version of the talk from Windy City Rails](http://windycityrails.org/videos2011/#1).
 
 ## Ruby Conference ##
 
 ### Be a Minecraft modman with Purugin ###
 
-Minecraft is a game that has gained an immense following. Users explore worlds and construct things along the way. However, there are a unique set of users who like to tinker around with the game and create mods for it. These users are known as modman, or so JRuby team member Thomas Enebo has decided to call them. This talk discusses Purugin, a framework that uses JRuby to allow for creating Minecraft plugins using Ruby syntax. A video of the talk is available at [Confreaks](http://confreaks.net/videos/696-rubyconf2011-be-a-minecraft-modman-with-purugin)
+Minecraft is a game that has gained an immense following. Users explore worlds and construct things along the way. However, there are a unique set of users who like to tinker around with the game and create mods for it. These users are known as modman, or so JRuby team member Thomas Enebo has decided to call them. This talk discusses Purugin, a framework that uses JRuby to allow for creating Minecraft plugins using Ruby syntax. A video of the talk is available at [Confreaks](http://confreaks.net/videos/696-rubyconf2011-be-a-minecraft-modman-with-purugin).
 
 ### JRuby: Polyglot Heaven ###
 
-With languages such as Scala, Clojure, and Groovy setting a new trend for languages on the JVM, projects utilizing multiple languages are not a rare site. This talk by JRuby team members Charles Nutter and Thomas Enebo takes a look at how JRuby can be used to interact with other JVM languages. A video of the talk is available at [Confreaks](http://confreaks.net/videos/684-rubyconf2011-jruby-polyglot-heaven)
+With languages such as Scala, Clojure, and Groovy setting a new trend for languages on the JVM, projects utilizing multiple languages are not a rare site. This talk by JRuby team members Charles Nutter and Thomas Enebo takes a look at how JRuby can be used to interact with other JVM languages. A video of the talk is available at [Confreaks](http://confreaks.net/videos/684-rubyconf2011-jruby-polyglot-heaven).
 
 ### JRuby and Big Data ###
 
