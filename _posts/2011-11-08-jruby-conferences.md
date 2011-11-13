@@ -40,3 +40,15 @@ With languages such as Scala, Clojure, and Groovy setting a new trend for langua
 ### JRuby and Big Data ###
 
 Jeremy Hinegardner presents different ways that JRuby can work with big data. The talk discusses interfacing with big data solutions such as [Apache Hadoop](http://hadoop.apache.org/), [HDFS](http://hadoop.apache.org/hdfs/), [Avro](http://avro.apache.org/), and more. A video of the talk can be found on [Confreaks](http://confreaks.net/videos/674-rubyconf2011-jruby-and-big-data) and [Youtube](http://www.youtube.com/watch?v=MBXH0P5tB2g).
+
+**Update** Added RubyConf Brazil Talks. Thanks to @qmx on twitter for the heads up!
+
+## RubyConf Brazil ##
+
+### JRUBY ON STEROIDS ###
+
+Technology is constantly improving, and the JVM is no exception. JRuby contributor Douglas Campos  takes a look at Java7's improvements for dynamic languages, and how JRuby benefits from them. [HTML Slides](http://cdn.qmx.me/presentations/2011/rubyconfbr/index.html) can be found on the author's website. A video recording in Brazilian Portuguese can be found at [eventials](http://www.eventials.com/rubyconfbr/recorded/M2UzZTJkMzY2MzdiNTg2NTUxNWM1MzI3NWY1YjRhMzYjIzM5Ng_3D_3D).
+
+### TORQUEBOX - CROSSING THE CHASM BETWEEN JAVA AND RUBY ###
+
+Scale is always a hot topic in the web development world. However you don't have to reinvent the wheel to achieve it. TorqueBox contributor Bruno Oliveira looks at how Rails/Sinatra/Rack applications can be combined with JVM technologies to provide scalable applications. Slides can be found at [slideshare](http://www.slideshare.net/bruno.abstractj/torquebox-ultrapassando-a-fronteira-entre-java-e-ruby). A video recording in Brazilian Portuguese can be found at [eventials](http://www.eventials.com/rubyconfbr/recorded/M2UzZTJkMzY2MzdiNTg2NTUxNWM1MzI3NWY1YjRhMzYjIzM5OQ_3D_3D).
