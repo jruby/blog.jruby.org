@@ -53,42 +53,42 @@ There weren't too many respondents who use JRuby only for development. The gap b
 
 #### JRuby Development Version
 
-* 1.7 dev (git master) - 9 users (11%)
-* 1.6.5 - 46 users (58%)
-* 1.6.4 - 12 users (15%)
-* 1.6.3 - 5 users (6%)
-* 1.6.2 - 2 user (3%)
-* 1.6.1 - 1 user (1%)
-* 1.5 - 3 users (4%)
-* 1.4 and lower - 1 user (1%)
+* JRuby 1.7 dev (git master) - 9 users (11%)
+* JRuby 1.6.5 - 46 users (58%)
+* JRuby 1.6.4 - 12 users (15%)
+* JRuby 1.6.3 - 5 users (6%)
+* JRuby 1.6.2 - 2 user (3%)
+* JRuby 1.6.1 - 1 user (1%)
+* JRuby 1.5 - 3 users (4%)
+* JRuby 1.4 and lower - 1 user (1%)
 
 Most users are around 1.6.4 and 1.6.5, with a good number using trunk. This is expected for development use. 
 
 #### JRuby Development 1.8/1.9 Mode
 
-* 1.8 Mode - 19 users (32%)
-* 1.9 Mode - 28 users (47%)
+* Ruby 1.8 Mode - 19 users (32%)
+* Ruby 1.9 Mode - 28 users (47%)
 * Both - 12 users (12%)
 
 This was not too surprising. A majority of development users are on 1.9 mode, with the rest between 1.8 mode or both 1.8 and 1.9 mode. 
 
 #### JRuby Production Version
 
-* 1.7 dev (git master) - 2 users (3%)
-* 1.6.5 - 37 users (56%)
-* 1.6.4 - 9 users (14%)
-* 1.6.3 - 8 users (12%)
-* 1.6.2 - 1 users (2%)
-* 1.6.1 - 1 user (2%)
-* 1.5 - 6 users (9%)
-* 1.4 and lower - 1 user (3%)
+* JRuby 1.7 dev (git master) - 2 users (3%)
+* JRuby 1.6.5 - 37 users (56%)
+* JRuby 1.6.4 - 9 users (14%)
+* JRuby 1.6.3 - 8 users (12%)
+* JRuby 1.6.2 - 1 users (2%)
+* JRuby 1.6.1 - 1 user (2%)
+* JRuby 1.5 - 6 users (9%)
+* JRuby 1.4 and lower - 1 user (3%)
 
 The 2 users of 1.7 dev was a bit of a surprise. If you're out there and reading this please shoot me an email on how you're using it and how it's working for you! There are a lot of 1.6.5 users, which means a majority of users are good about keeping up to date (since 1.6.5 was very recently released). There are noticeable number of 1.5 users, which is understandable given that some business are very conservative about technology related changes. If however there's a bug or other reason which is blocking you from upgrading to the 1.6 please let us know! Having everyone on the same page is what we'd like to achieve. 
 
 #### JRuby 1.8/1.9 Mode
 
-* 1.8 mode - 26 users (48%)
-* 1.9 mode - 17 users (31%)
+* JRuby 1.8 mode - 26 users (48%)
+* JRuby 1.9 mode - 17 users (31%)
 * Both - 11 users (20%)
 
 The results here were a bit intriguing, as I was expecting a far larger gap between 1.8 and 1.9 mode usage. It will be interesting to revisit this question again when JRuby 1.7 becomes officially released. For those using both 1.8 and 1.9 mode, let us know how the Ruby mode usage is split up for your particular case.
