@@ -95,10 +95,10 @@ The results here were a bit intriguing, as I was expecting a far larger gap betw
 
 ### JRuby and Rails Deployment Survey
 
-The question was posed as to what OS and what app server was used for JRuby and Rails deployment. Most users mentioned that they were doing development work on Mac OSX, which is normal for the Ruby community in general. The server operating systems were a mix of RedHat and Debian based (RedHat, CentOS, Fedora, Debian, Ubuntu). There were a few Windows users (Windows 2008 Server), and a Solaris and AIX user. As for the app servers, Tomcat had the lead with Jetty, Trinidad and Torquebox also getting mentions.  A few users also mentioned WebSphere and Glassfish.
+The question was posed as to what OS and what app server was used for JRuby and Rails deployment. Most users mentioned that they were doing development work on Mac OS X, which is normal for the Ruby community in general. The server operating systems were a mix of RedHat and Debian based (RedHat, CentOS, Fedora, Debian, Ubuntu). There were a few Windows users (Windows 2008 Server), and a Solaris and AIX user. As for the app servers, Tomcat had the lead with Jetty, Trinidad and Torquebox also getting mentions.  A few users also mentioned WebSphere and Glassfish.
 
 This leads me to the conclusion that:
 
 * We need to ensure the install guide for these app servers is up to date, especially the widely used Tomcat server.
 * On that note finding links to the official pages of specific distributions on installing JRuby would be helpful
-* A lot of users were noting that Mac OSX is their main development box, so revisiting the installer and ensuring it meets its needs would be a good idea
+* A lot of users were noting that Mac OS X is their main development box, so revisiting the installer and ensuring it meets its needs would be a good idea
