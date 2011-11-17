@@ -87,8 +87,8 @@ The 2 users of 1.7 dev was a bit of a surprise. If you're out there and reading 
 
 #### JRuby 1.8/1.9 Mode
 
-* JRuby 1.8 mode - 26 users (48%)
-* JRuby 1.9 mode - 17 users (31%)
+* Ruby 1.8 mode - 26 users (48%)
+* Ruby 1.9 mode - 17 users (31%)
 * Both - 11 users (20%)
 
 The results here were a bit intriguing, as I was expecting a far larger gap between 1.8 and 1.9 mode usage. It will be interesting to revisit this question again when JRuby 1.7 becomes officially released. For those using both 1.8 and 1.9 mode, let us know how the Ruby mode usage is split up for your particular case.
