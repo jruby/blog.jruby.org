@@ -20,7 +20,7 @@ over the GA ('General Availability') release.
 
 Most platforms have easy access to OpenJDK builds. I'll summarize the steps here.
 
-### Windows, Linux, and Solaris
+### Linux, Windows, and Solaris
 
 Oracle provides binary downloads for Windows, Linux, and Solaris on its site. The [JavaSE
 Downloads](http://www.oracle.com/technetwork/java/javase/downloads/index.html) page links to
@@ -32,11 +32,12 @@ packages available, if they don't already.
 
 ### OS X
 
-There are no official releases of OpenJDK for OS X just yet, but you can get the current builds
-from the [openjdk-osx-build](http://code.google.com/p/openjdk-osx-build/) project. The build
-you want is currently labeled "1.7-x86-u2", but any combination of "1.7" and "u2" in the
-future will get what you need. The package will contain either a self-contained JDK for you
-to drop onto your system or a .pkg installer that does it for you.
+There official [preview of OpenJDK for OS X](http://jdk7.java.net/macportpreview/) lags behind,
+but you can get the current builds from the
+[openjdk-osx-build](http://code.google.com/p/openjdk-osx-build/) project. The build
+you want is currently labeled "OpenJDK-OSX-1.7-x64-u2-b21", but any future build labeled "1.7"
+and "u2" in the future will get what you need. The .dmg provides either a self-contained
+JDK for you to drop onto your system or a .pkg installer that does it for you.
 
 ### \*BSD
 
@@ -48,14 +49,14 @@ information for FreeBSD, NetBSD, DragonFly BSD, and OpenBSD on the
 Why Update 2?
 -------------
 
-The reason we haven't previously made a lot of noise about Java 7 and JRuby, nor assembled a
-blog post/tutorial like this, is due to the fact that Java 7 GA was missing key optimizations
+We haven't previously made a lot of noise about Java 7 and JRuby, nor assembled a
+blog post/tutorial like this, primarily because Java 7 GA was missing key optimizations
 in the invokedynamic subsystem. JRuby 1.7 will make heavy use of invokedynamic, and if we had
 released it before those optimizations were in place, it would have given people a bad
 impression of the power of invokedynamic.
 
 Update 2 now has a small set of optimizations that make a very large difference. If you intend
-to start playing with JRuby 1.7 builds, we strongly recommend you use update 2.
+to start playing with JRuby 1.7 builds, we strongly recommend you use OpenJDK 7u2 or higher.
 
 Getting JRuby
 -------------
@@ -77,6 +78,9 @@ You can also install JRuby through RVM or rbenv, using ```rvm install jruby``` o
 already using RVM or rbenv. It's also possible to build/install JRuby 1.6.x snapshots using
 ```rvm install --branch jruby-1\_6 jruby-head```.
 
+Windows users may be interested in [pik](https://github.com/vertiginous/pik), an RVM-like
+tool for managing Ruby installations. It supports JRuby, naturally.
+
 There are also JRuby packages for most major Linux and BSD variants. They're not always
 up-to-date, however.
 
@@ -85,17 +89,18 @@ and build the jruby-1\_6 branch.
 
 ### JRuby 1.7.x (in development)
 
-JRuby 1.7 is not out yet, since we had been waiting for OpenJDK 7u2 to drop before starting
-our finalization process. Until it's released, you can get it a few different ways.
+JRuby 1.7 is not out yet...we had been waiting for OpenJDK 7u2 to drop before starting
+our finalization process. But we're looking for folks to start playing with it now. Until we
+release JRuby 1.7, you can get it a few different ways.
 
 Simplest is probably to grab a snapshot from the JRuby's
 [master snapshots page](http://ci.jruby.org/snapshots/master). You'll find the usual complement
 of packages and installers there.
 
-RVM can install JRuby 1.7 (master) using ```rvm install jruby-head```.
+RVM can install JRuby master using ```rvm install jruby-head```.
 
 And of course, you can clone from [Github](http://github.com/jruby/jruby) and build the master
-branch.
+branch yourself, by running ```ant```. JRuby runs fine from the working copy.
 
 Use the Right Java Version
 --------------------------
@@ -139,21 +144,26 @@ If you have other suggestions, feel free to comment.
 
 ### OS X
 
-On OS X, you have a couple options.
+On OS X, you have a few options.
 
 Your best option will be to use the oft-tweaked "pickjdk" script, which scans installed JDK
 versions and presents a menu. Selecting a version rewrites your environment to point at that
 version. I prefer [my pickjdk variant](https://gist.github.com/1234935), since it allows specifying an install number directly
 without going through the menu.
 
-Second, you can open up the Java Preferences utility (search with QuickSilver or Spotlight)
+An alternative is to configure your environment manually. Java installations are located under
+```/Library/Java/JavaVirtualMachines```; set JAVA_HOME to
+```/Library/Java/JavaVirtualMachines/1.7.0u.jdk/Contents/Home```and prepend $JAVA_HOME/bin to
+your PATH. You're ready to go.
+
+You can also open up the Java Preferences utility (located in /Applications/Utilities)
 and drag your preferred Java version to the top. This is a *global* change, and will affect
-any programs that just run the OS X-default Java. Because the GUI parts of the OS X Java 7
+any programs that use the default Java version. Because the GUI parts of the OS X Java 7
 preview are still in development, THIS IS NOT RECOMMENDED.
 
 ### Other OSes
 
-I'm not sure of the proper mechanism for managing multiple Java installs on the other BSDs
+I don't know the proper mechanism for managing Java installations on the other BSDs
 or on Solaris. Feel free to comment.
 
 Try It Out!
@@ -163,6 +173,13 @@ Once you've got JRuby installed and in PATH (via whatever mechanism) and Java 7 
 and in PATH (via whatever mechanism), you're ready to test it out! Start up ```jirb```,
 launch your favorite JRuby-based app, or just run some benchmarks.
 
+If you're especially interested in performance, try out
+[```bench/bench_red_black.rb```](https://raw.github.com/jruby/jruby/master/bench/bench_red_black.rb)
+from JRuby's benchmark suite. It's a pure-Ruby implementation and benchmark of a red/black
+tree, and a good representation of the kind of performance improvements you should see
+from JRuby on Java 7. There's plenty of other benchmarks in our suite and in the wild...
+play around and let us know how it goes.
+
 What to Expect
 --------------
 
@@ -170,17 +187,31 @@ Java 7 brings a lot of performance updates, even without invokedynamic. If you'r
 1.6.x, you should see an immediate performance improvement moving from Java 6 to Java 7. I
 have heard reports of anywhere from 10-30% faster applications.
 
-If you're using JRuby 1.7, you should see even more significant improvements. JRuby 1.7's use
-of invokedynamic means that Ruby code runs faster, optimizes better, and uses fewer resources.
-In fact, if you *don't* see better performance with JRuby 1.7 versus JRuby 1.6 on Java 7,
-please report an issue at [JRuby's bug tracker](http://bugs.jruby.org). You've probably found
-a flaw in our compiler...a flaw we'll definitely want to fix before release.
+If you're trying out JRuby master (1.7), you should see even more significant improvements.
+JRuby 1.7's use of invokedynamic means that Ruby code runs faster, optimizes better, and uses
+fewer resources. In fact, if you *don't* see better performance with JRuby 1.7 versus JRuby
+1.6 on Java 7, please report an issue at [JRuby's bug tracker](http://bugs.jruby.org). You've
+probably found a flaw in our compiler...a flaw we'll want to fix before release.
+
+As a bit of a teaser, here's [my numbers running the red/black tree benchmark](https://gist.github.com/1493911)
+from above (the numbers are time in seconds). Compared to JRuby on Java 6, JRuby
+on Java 7 *without* invokedynamic is around 25% faster, and JRuby with invokedynamic is nearly
+*3 times* faster.
+
+It's also worth mentioning that invokedynamic isn't "done". There's a new optimizer planned for
+Java 7u4 and my OpenJDK friends tell me there are many opportunities to increase performance.
+JRuby on Java 7 will just keep getting faster.
+
+JRuby has room to grow as well. We're using invokedynamic heavily for the upcoming 1.7 release,
+but there's many places yet to be adapted. The performance you see today is not the end of the
+story...there's a lot more we can do.
+
 
 Your Turn
 ---------
 
 That's about it for this tutorial. Hopefully you'll be up and running on JRuby with Java 7
 very quickly. If you have any trouble, please comment...we'll try update this article with
-fixes and suggestions. And I repeat my call for feedback on JRuby 1.7 + Java 7...this is the
-future of JRuby, and it could be the future of high-performance Ruby. Let's work together to
-make it awesome!
+fixes and suggestions. And I repeat my call for feedback on JRuby master + Java 7...this is
+the future of JRuby, and it could be the future of high-performance Ruby. Let's work together
+to make it awesome!
