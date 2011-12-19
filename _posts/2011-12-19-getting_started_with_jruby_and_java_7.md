@@ -39,6 +39,10 @@ you want is currently labeled "OpenJDK-OSX-1.7-x64-u2-b21", but any build labele
 and "u2" in the future will get what you need. The .dmg provides either a self-contained
 JDK for you to drop onto your system or a .pkg installer that does it for you.
 
+*Update*: Henri Gomez, the primary guy behind openjdk-osx-build, has set up a page specifically
+for the update builds. Grab the JDK or JRE from his
+[OpenJDK7JDK7UOSX](http://code.google.com/p/openjdk-osx-build/wiki/OpenJDK7JDK7UOSX) page.
+
 ### \*BSD
 
 The OS X work is based off the "bsd-port" branch of OpenJDK. There are links to Java 7 package
@@ -57,6 +61,12 @@ impression of the power of invokedynamic.
 
 Update 2 now has a small set of optimizations that make a very large difference. If you intend
 to start playing with JRuby 1.7 builds, we strongly recommend you use OpenJDK 7u2 or higher.
+
+*Update*: Your ```jruby -v``` output should look something like this:
+
+```
+jruby 1.7.0.dev (ruby-1.8.7-p352) (2011-12-19 f404f75) (OpenJDK 64-Bit Server VM 1.7.0-u2-b21) [darwin-amd64-java]
+```
 
 Getting JRuby
 -------------
