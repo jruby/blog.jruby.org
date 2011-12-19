@@ -32,7 +32,7 @@ packages available, if they don't already.
 
 ### OS X
 
-There official [preview of OpenJDK for OS X](http://jdk7.java.net/macportpreview/) lags behind,
+The official [preview of OpenJDK for OS X](http://jdk7.java.net/macportpreview/) lags behind,
 but you can get the current builds from the
 [openjdk-osx-build](http://code.google.com/p/openjdk-osx-build/) project. The build
 you want is currently labeled "OpenJDK-OSX-1.7-x64-u2-b21", but any future build labeled "1.7"
