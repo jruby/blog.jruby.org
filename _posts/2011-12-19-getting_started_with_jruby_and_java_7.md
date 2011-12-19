@@ -35,7 +35,7 @@ packages available, if they don't already.
 The official [preview of OpenJDK for OS X](http://jdk7.java.net/macportpreview/) lags behind,
 but you can get the current builds from the
 [openjdk-osx-build](http://code.google.com/p/openjdk-osx-build/) project. The build
-you want is currently labeled "OpenJDK-OSX-1.7-x64-u2-b21", but any future build labeled "1.7"
+you want is currently labeled "OpenJDK-OSX-1.7-x64-u2-b21", but any build labeled "1.7"
 and "u2" in the future will get what you need. The .dmg provides either a self-contained
 JDK for you to drop onto your system or a .pkg installer that does it for you.
 
