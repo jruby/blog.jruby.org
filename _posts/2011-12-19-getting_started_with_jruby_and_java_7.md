@@ -68,6 +68,8 @@ to start playing with JRuby 1.7 builds, we strongly recommend you use OpenJDK 7u
 jruby 1.7.0.dev (ruby-1.8.7-p352) (2011-12-19 f404f75) (OpenJDK 64-Bit Server VM 1.7.0-u2-b21) [darwin-amd64-java]
 ```
 
+The important bit is that "u2" appear somewhere in that line.
+
 Getting JRuby
 -------------
 
@@ -165,6 +167,11 @@ An alternative is to configure your environment manually. Java installations are
 ```/Library/Java/JavaVirtualMachines```; set JAVA_HOME to
 ```/Library/Java/JavaVirtualMachines/1.7.0u.jdk/Contents/Home```and prepend $JAVA_HOME/bin to
 your PATH. You're ready to go.
+
+*Update*: There's an easy way to find available JAVA_HOMEs: the ```java_home``` command.
+```/usr/libexec/java_home``` will return the path to the default JVM (from Java Preferences).
+You can also specify ```-v 1.7``` for the first Java 7 (1.7) install, or pass```-V``` to
+list all available JVMs.
 
 You can also open up the Java Preferences utility (located in /Applications/Utilities)
 and drag your preferred Java version to the top. This is a *global* change, and will affect
