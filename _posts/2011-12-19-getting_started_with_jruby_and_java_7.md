@@ -149,6 +149,9 @@ the JBoss 5 docs have a nice page on
 I have so far been unable to find a way to easily manage multiple installed Java versions on
 Gentoo. Feel free to submit suggestions in the comments.
 
+*Update*: Gentoo's mechanism is the ```java-config``` command. ```java-config -L``` lists all
+installed runtimes, and ```java-config -set X``` to set the default to runtime X.
+
 ### Windows
 
 On Windows, your best best is generally to put the preferred Java version's bin/ dir in PATH.
