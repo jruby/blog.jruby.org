@@ -170,7 +170,7 @@ your PATH. You're ready to go.
 
 *Update*: There's an easy way to find available JAVA_HOMEs: the ```java_home``` command.
 ```/usr/libexec/java_home``` will return the path to the default JVM (from Java Preferences).
-You can also specify ```-v 1.7``` for the first Java 7 (1.7) install, or pass```-V``` to
+You can also specify ```-v 1.7``` for the first Java 7 (1.7) install, or pass ```-V``` to
 list all available JVMs.
 
 You can also open up the Java Preferences utility (located in /Applications/Utilities)
