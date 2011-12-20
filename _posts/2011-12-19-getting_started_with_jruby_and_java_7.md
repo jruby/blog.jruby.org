@@ -150,7 +150,7 @@ I have so far been unable to find a way to easily manage multiple installed Java
 Gentoo. Feel free to submit suggestions in the comments.
 
 *Update*: Gentoo's mechanism is the ```java-config``` command. ```java-config -L``` lists all
-installed runtimes, and ```java-config -set X``` to set the default to runtime X.
+installed runtimes, and ```java-config -set X``` sets the default to runtime X.
 
 ### Windows
 
