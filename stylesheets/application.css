@@ -187,6 +187,10 @@ article header .vcard a {
   color: #666;
   border-bottom: 1px solid #666;
 }
+
+#disqus_thread {
+  margin-top: 5em;
+}
 /* ...content */
 
 /* footer... */

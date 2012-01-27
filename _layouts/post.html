@@ -16,11 +16,25 @@ layout: default
       Published <i>by</i> <a href="mailto:{{ page.email }}" rel="email">{{ page.author }}</a>
       <i>on</i> <time pubdate datetime="{{ page.date | date: '%Y-%m-%d' }}">{{ page.date | date: '%B %d, %Y' }}</time>
     </h3>
-
   </header>
 
   <section class="entry-content">
     {{ content }}
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '{{ page.url }}';
+      var disqus_title      = '{{ page.title }}';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
   </section>
 
   {% if page.canonical %}
