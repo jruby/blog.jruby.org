@@ -1,13 +1,13 @@
 ---
 layout: post
-title: Using Trindad to Run Multiple Applications
+title: Using Trindad to Run Multiple Apps
 author: Joe Kutner
 email: jpkutner@gmail.com
 ---
 
 One of the advantages of running Ruby on the JVM is that we can deploy multiple applications to the same webserver.  Using one JRuby webserver means that there is only one process to manage, monitor, start and stop. Your sysadmins will thank you. 
 
-But having mutliple applications on one virtual machine also means we can configure them to share resources, thus reducing the overhead required for a production server.  In this post, we'll walk through an example of deploying two applications to one Trinidad server. 
+Having mutliple applications on one virtual machine also means we can configure them to share resources, thus reducing the overhead required for a production server.  In this post, we'll walk through an example of deploying two applications to one Trinidad server. 
 
 Trinidad is a light-weight JRuby web server that runs Rails and Rack applications in an embedded Apache Tomcat container.  Let's install it by running this command:
 
@@ -75,7 +75,7 @@ Next, let's use the pool in our applications.  Change the `thing1/config.ru` fil
 
 <script src="https://gist.github.com/2254164.js?file=config.ru"></script>
 
-First, we're loading the `active_record` Gem, which will use to interface with our database.  Next, we've added two statements to our `get` service.  The first statement establishes a connection from the pool by referencing the JNDI resource we definined earlier.  The second line executes a simple query against PostgreSQL's internal tables.  Finally, we're returning the result of the query as the service response.
+First, we've loaded the `active_record` Gem, which we'll use to interface with our database.  Next, we've added two statements to our `get` service.  The first statement establishes a connection from the pool by referencing the JNDI resource we definined earlier.  The second line executes a simple query against PostgreSQL's internal tables.  Finally, we're returning the result of the query as the service response.
 
 Next, modify `thing2/config.ru` so it looks similar to the code above, but with "Thing two" in the response.
 
