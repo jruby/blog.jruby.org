@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Using Trindad to Run Multiple Apps
+title: Using Trinidad to Run Multiple Apps
 author: Joe Kutner
 email: jpkutner@gmail.com
 ---
