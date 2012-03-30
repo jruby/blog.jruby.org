@@ -17,15 +17,45 @@ Next, let's create a Trinidad home directory.  The examples in this post will us
 
 Under the `/opt/trinidad` directory, we'll create two more directories called `thing1` and `thing2`, which will contain the applications we're going to run on our single Trinidad server.  In the `thing1` directory, create a `config.ru` file and put this code in it:
 
-<script src="https://gist.github.com/2254164.js?file=thing1_config.ru"></script>
+<script src="https://gist.github.com/2254164.js&#63;file=thing1_config.ru">
+<!--
+require 'rubygems'
+require 'sinatra'
+
+get '/' do
+  "This is thing one!"
+end
+
+run Sinatra::Application
+-->
+</script>
 
 In the `thing2` directory, create another `config.ru` file and put this code in it:
 
-<script src="https://gist.github.com/2254164.js?file=thing2_config.ru"></script>
+<script src="https://gist.github.com/2254164.js&#63;file=thing2_config.ru">
+<!--
+require 'rubygems'
+require 'sinatra'
+
+get '/' do
+  "This is thing two!"
+end
+
+run Sinatra::Application
+-->
+</script>
 
 Next, we'll create a `/opt/trinidad/trinidad.yml` file, which will be used to configure our Trinidad server.  
 
-<script src="https://gist.github.com/2254164.js?file=trinidad.yml"></script>
+<script src="https://gist.github.com/2254164.js?file=trinidad.yml">
+<!--
+web_apps:
+  default:                                  # use the "/" context
+    web_app_dir: '/opt/trinidad/thing1'
+  thing2:                                   # use the "/thing2" context
+    web_app_dir: '/opt/trinidad/thing2'
+-->
+</script>
 
 Our Trinidad home directory should look like this:
 
@@ -42,18 +72,11 @@ Before we start the server, let's make sure Sinatra is installed by running this
 
 Now we can run our Trinidad server by executing this command:
 
-    $ trinidad --config /opt/trinidad/trinidad.yml
-    Mar 29, 2012 11:46:52 PM org.apache.coyote.AbstractProtocol init
-    INFO: Initializing ProtocolHandler ["http-bio-3000"]
-    Mar 29, 2012 11:46:52 PM org.apache.catalina.core.StandardService startInternal
-    INFO: Starting service Tomcat
-    Mar 29, 2012 11:46:52 PM org.apache.catalina.core.StandardEngine startInternal
-    INFO: Starting Servlet Engine: Apache Tomcat/7.0.23
-    2012-03-30 04:46:52 INFO: No global web.xml found
-    2012-03-30 04:46:53 INFO: jruby 1.6.7 (ruby-1.8.7-p357) (2012-02-22 3e82bc8) (Java HotSpot(TM) 64-Bit Server VM 1.6.0_29) [darwin-x86_64-java]
-    2012-03-30 04:46:56 INFO: The start() method was called on component [Realm[Simple]] after start() had already been called. The second call will be ignored.
-    2012-03-30 04:46:56 INFO: jruby 1.6.7 (ruby-1.8.7-p357) (2012-02-22 3e82bc8) (Java HotSpot(TM) 64-Bit Server VM 1.6.0_29) [darwin-x86_64-java]
-    2012-03-30 04:46:58 INFO: Starting ProtocolHandler ["http-bio-3000"]
+<script src="https://gist.github.com/2254164.js?file=run.sh">
+<!--
+trinidad &#8208;&#8208;config /opt/trinidad/trinidad.yml
+-->
+</script>
 
 As the server starts up, we'll see that its instatiated two runtimes -- one for each of our applications.  We can see each of them by browsing to `http://localhost:3000` and `http://localhost:3000/thing2`.
 
@@ -65,7 +88,21 @@ Because these applications are running in the same JVM, they can share a Databas
 
 To use the `trinidad_dbpool_extension`, we'll need to add an `extensions:` entry to our `trinidad.yml` file.  The new entry will contain the configuration for the Database Connection Pool.  The entire file should look like this now:
 
-<script src="https://gist.github.com/2254164.js?file=trinidad2.yml"></script>
+<script src="https://gist.github.com/2254164.js?file=trinidad2.yml">
+<!--
+web_apps:
+  default:
+    web_app_dir: '/opt/trinidad/thing1'
+  thing2:
+    web_app_dir: '/opt/trinidad/thing2'
+extensions:
+  postgresql_dbpool:                                   
+    jndi: 'jdbc/trinidad'                           
+    username: 'postgres'                              
+    password: 'Passw0rd'                              
+    url: 'jdbc:postgresql://localhost:5432/trinidad' 
+-->
+</script>
 
 The extension creates the database connection pool inside the Tomcat container and gives it a JNDI name.  JNDI is a registry service for resources inside of a JVM.
 
@@ -73,7 +110,27 @@ You'll have to use a real database for this to work, but you don't have to use P
 
 Next, let's use the pool in our applications.  Change the `thing1/config.ru` file to look like this:
 
-<script src="https://gist.github.com/2254164.js?file=config.ru"></script>
+<script src="https://gist.github.com/2254164.js?file=config.ru">
+<!--
+require 'rubygems'
+require 'sinatra'
+require 'active_record'
+
+get '/' do
+  ActiveRecord::Base.establish_connection(
+    :adapter => "jdbcpostgresql",
+    :jndi => "java:/comp/env/jdbc/trinidad"
+  )
+
+  r = ActiveRecord::Base.connection.execute(
+    "select count(*) from pg_catalog.pg_tablespace")
+
+  "Thing one found: #{r.inspect}"
+end
+
+run Sinatra::Application
+-->
+</script>
 
 First, we've loaded the `active_record` Gem, which we'll use to interface with our database.  Next, we've added two statements to our `get` service.  The first statement establishes a connection from the pool by referencing the JNDI resource we definined earlier.  The second line executes a simple query against PostgreSQL's internal tables.  Finally, we're returning the result of the query as the service response.
 
@@ -99,4 +156,4 @@ Sharing a database connection pool simplifies our production architecture by eli
 
 If you found this useful, I encourage you to pick up a copy of my book, [Deploying with JRuby](http://pragprog.com/book/jkdepj/deploying-with-jruby "Deploy with JRuby"), which has tons of other JRuby examples like this one.
 
-The complete source for this example can be found on Github: https://github.com/jkutner/trinidad-dbpool-example
+The complete source for this example can be found on Github at [trinidad-dbpool-example](https://github.com/jkutner/trinidad-dbpool-example "trinidad-dbpool-example").
