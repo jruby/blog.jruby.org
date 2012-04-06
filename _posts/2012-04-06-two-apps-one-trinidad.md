@@ -5,6 +5,8 @@ author: Joe Kutner
 email: jpkutner@gmail.com
 ---
 
+_This is part of a series of blog posts leading up to [JRubyConf 2012](http://jrubyconf.com). Joe Kutner is author of [Deploying with JRuby](http://pragprog.com/book/jkdepj/deploying-with-jruby "Deploy with JRuby") and an expert on JRuby deployment options. Joe will be attending and speaking at JRubyConf...[register for JRubyConf 2012](http://www.eventbrite.com/event/2571529514) today!_
+
 One of the advantages of running Ruby on the JVM is that we can deploy multiple applications to the same webserver.  Using one JRuby webserver means that there is only one process to manage, monitor, start and stop. Your sysadmins will thank you. 
 
 Having mutliple applications on one virtual machine also means we can configure them to share resources, thus reducing the overhead required for a production server.  In this post, we'll walk through an example of deploying two applications to one Trinidad server. 
