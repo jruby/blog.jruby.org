@@ -101,6 +101,12 @@ and build the jruby-1\_6 branch.
 
 ### JRuby 1.7.x (in development)
 
+_Update:_ [JRuby 1.7.0.preview1](http://www.jruby.org/2012/05/21/jruby-1-7-0-preview1) has been released!
+We are very interested in bug reports for the new invokedynamic support, and wanted to get
+this preview out for people to test. There will be issues, don't think for a moment there
+will not...but that's what previews and release candidates are for. Help us make 1.7.0
+awesome!
+
 JRuby 1.7 is not out yet...we had been waiting for OpenJDK 7u2 to drop before starting
 our finalization process. But we're looking for folks to start playing with it now. Until we
 release JRuby 1.7, you can get it a few different ways.
