@@ -43,6 +43,10 @@ JDK for you to drop onto your system or a .pkg installer that does it for you.
 for the update builds. Grab the JDK or JRE from his
 [OpenJDK7JDK7UOSX](http://code.google.com/p/openjdk-osx-build/wiki/OpenJDK7JDK7UOSX) page.
 
+*Update 2*: Oracle now has a supported build of [Java 7 update 4 for OS X](http://www.oracle.com/technetwork/java/javase/downloads/jdk-7u4-downloads-1591156.html), so you can get it
+from them! It only supports Lion, though, so if you're on Snow Leopard you will still need
+to use a build from Henri or build it yourself.
+
 ### \*BSD
 
 The OS X work is based off the "bsd-port" branch of OpenJDK. There are links to Java 7 package
@@ -164,8 +168,6 @@ On Windows, your best best is generally to put the preferred Java version's bin/
 If you have other suggestions, feel free to comment.
 
 ### OS X
-
-On OS X, you have a few options.
 
 Your best option will be to use the oft-tweaked "pickjdk" script, which scans installed JDK
 versions and presents a menu. Selecting a version rewrites your environment to point at that
