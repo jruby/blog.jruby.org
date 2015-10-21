@@ -1,7 +1,8 @@
-pygments: true
+highlighting: pygments
 permalink: "/:year/:month/:title"
 title: The JRuby Blog
 subtitle: The Ruby Programming Language on the JVM
 url: http://blog.jruby.org
 markdown: kramdown
+kramdown:
   input: GFM
