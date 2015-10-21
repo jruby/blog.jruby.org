@@ -4,3 +4,4 @@ title: The JRuby Blog
 subtitle: The Ruby Programming Language on the JVM
 url: http://blog.jruby.org
 markdown: kramdown
+  input: GFM
