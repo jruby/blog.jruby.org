@@ -7,7 +7,7 @@ email: headius@headius.com
 
 With the release of JRuby 9000, we promised you'd see our new runtime start to shine in update releases. Now, it's starting to happen.
 
-JRuby 9.0.3.0 has been released with three key performance improvements we're very excited about.
+[JRuby 9.0.3.0](http://jruby.org/2015/10/21/jruby-9-0-3-0.html) has been released with three key performance improvements we're very excited about.
 
 Lightweight Postfix Rescues
 ---------------------------
