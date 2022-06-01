@@ -6,3 +6,10 @@ url: http://blog.jruby.org
 markdown: kramdown
 kramdown:
   input: GFM
+plugins:
+- jekyll-asciidoc
+asciidoctor:
+  attributes:
+    icons: font
+    source-highlighter: pygments
+    pygments-css: style
