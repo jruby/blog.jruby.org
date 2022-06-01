@@ -1,0 +1,713 @@
+= Generating Java Classes at runtime with JRuby 9.3.4
+Patrick Plenfisch
+:doctype: article
+:encoding: utf-8
+:lang: en
+:toc: left
+:numbered:
+
+
+== Background
+
+There are many reasons people use the JRuby implementation of Ruby over MRI/CRuby: increased long-run performance, lock-free multi-threading, the ability to deliver code as a war file, and to integrate with Java libraries. I often find my use of JRuby via integrating with Java, and that's the topic of this post.
+
+First, what types of basic Java integration does JRuby currently provide?
+
+ 1. Embedding JRuby in Java code (JSR-223)
+ 2. Memory/GC integration
+ 3. Marshaling values from Ruby to Java
+ 4. Ruby code calling into Java
+ 5. Marshaling values from Java to Ruby
+ 6. Implementing interfaces so Java can call Ruby
+ 7. Extending a Java class with a Ruby class (concrete extension)
+ 8. Lowering a Ruby class into a JVM class at runtime (reification, `become_java!`)
+ 9. The `jrubyc` class compiler that can generate (ahead of time) Java classes
+
+
+This post will principally investigate #7 and #8, and some of their recent changes in the JRuby 9.3.4 series. I shall assume a basic knowledge of how the JVM works, and a familiarity with Ruby.
+
+First, why would one want to do either #7 or #8? Number 7, henceforth referred to as concrete extension, should hopefully be more obvious, as lots of frameworks and libraries require extending a class, and doing so from Ruby code is simply more convenient when using JRuby than having to bundle an extra jar. Number 8, henceforth referred to as reification, is needed whenever a full JVM class is required, either for multi-interface support, or as a token.
+
+As a quick example, lets look at using Logback, a common Java logging framework. Logback (slf4j, really) requires a class as a token to get a logger. The Ruby version uses using concrete extension and reification together.
+
+NOTE: All examples in here use the `maven-require` gem to load maven dependencies interactively. Install it via `gem install maven-require` and then in each `irb` session or file, `require 'maven_require'` at the top. Note the differing gem name and require line.
+
+
+.Classic Java Usage of Logback
+[source,java]
+----
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class JavaPiList extends java.util.AbstractList<Integer> {
+
+    static Logger logger = LoggerFactory.getLogger(JavaPiList.class);
+    int[] pi = {3,1,4,1,5,9};
+    
+    public Integer get(int index) {
+        logger.info("Getting index {}", index);
+        return pi[index];
+    }
+    
+    public int size() {
+        return pi.length;
+    }
+
+    public static void main(String[] args) {
+        new JavaPiList().get(3);
+        // => 12:34:56.789 [main] INFO JavaPiList - Getting index 3
+    }
+}
+----
+
+.Ported JRuby Usage of Logback
+[source,ruby]
+----
+require 'jruby/core_ext' # required for become_java! to do anything useful
+require 'maven_require'
+# load latest version of logback into this Ruby session
+maven_require "ch.qos.logback:logback-classic:RELEASE"
+
+class RubyPiList < java.util.AbstractList
+    def initialize
+        @pi = [3,1,4,1,5,9]
+    end
+    def get(index)
+        Logger.info("Getting index {}", index)
+        return @pi[index]
+    end
+    def size()
+        @pi.length
+    end
+    # Ensure this class is reified
+    become_java! 
+    Logger = org.slf4j.LoggerFactory.get_logger(RubyPiList.java_class)
+end
+RubyPiList.new.get(3)
+# => 12:34:56.789 [main] INFO rubyobj.RubyPiList - Getting index 3
+----
+
+
+Neat! How is this implemented under the hood in JRuby? We can take a look at the generated classes to find out. But first, we must save the classes generated to a disk somewhere. Luckily, this is easy to do selectively by passing a directory to `become_java!`, and the generated class will be saved under it:
+
+.Saving class files
+[source,ruby]
+----
+become_java!("/tmp/jruby-dump-folder")
+----
+
+NOTE: For some of the examples here I've taken the JVM bytecode generated, and run it through the https://github.com/JetBrains/intellij-community/tree/master/plugins/java-decompiler/engine[FernFlower] decompiler. The code you see may not compile, and those seeking a deeper understanding are encouraged to explore the disassembled JVM bytecode directly. I recommend https://bytecodeviewer.com/[Bytecode Viewer] as it's what I used to develop these improvements to JRuby.
+
+Now, we can look at the decompiled MyRubyClass that JRuby generated for us:
+
+.Generated MyRubyClass (decompiled)
+[source,java]
+----
+public class RubyPiList extends AbstractList implements ReifiedJavaProxy {
+   private synthetic final ConcreteJavaProxy this$rubyObject;
+   // ...bookkeeping fields snipped...
+   // ...constructors snipped...
+
+   public int size() {
+      this.this$rubyObject.ensureThis(this);
+      return ((Number)this.this$rubyObject.callMethod("size", IRubyObject.NULL_ARRAY).toJava(Integer.TYPE)).intValue();
+   }
+
+   public Object get(int var1) {
+      this.this$rubyObject.ensureThis(this);
+      return (Object)this.this$rubyObject.callMethod("get",
+            new IRubyObject[]{
+                JavaUtil.convertJavaToRuby(ruby, var1)
+            }).toJava(Object.class);
+   }
+   // ...bookkeeping methods snipped...
+}
+
+----
+
+Here we can see several important facts. First, this is just a proxy for a Ruby class. As the Java class just delegate everything to the Ruby object, all the logic can still be swapped around via monkey patching and it is still dynamic under the hood. The Java class is merely an interface to the Ruby class. Second, there is lots of internal JRuby bookkeeping present, so performance may be lower. Third, all instance variables are not lowered to fields and are still Ruby-private. And fourth, the method signatures were picked up from the superclass.
+
+
+For most JRuby Java integrations this is fine, but sometimes you need to add some more flair to your generated classes. Let us investigate three separate ways to upgrade our integration game with JRuby 9.3.4 improvements to concrete reification:
+
+ 1. Java-callable constructors
+ 2. Fields
+ 3. Annotations
+
+
+== Constructors
+The first issue I ever filed against JRuby was about the lack of java-callable constructors for java-extending classes (concrete extension), in 2012. One anagram and 8½ years later, it was finally closed in 2021, as my implementation was merged into JRuby 9.3.0. What caused me to file the issue, and still want it done in 2021? JavaFX, or more specifically, the JRuby bindings of JavaFX, JRubyFX. JavaFX is a cross-platform GUI toolkit, and my usual go-to for GUI work when I'm writing Ruby.
+
+One of the features that drew me to JavaFX is SceneBuilder, a drag-and-drop GUI designer that produces a runtime-loadable XML (cleverly called FXML) description of the GUI layout. While it's possible to use JavaFX/JRubyFX without FXML (and indeed most of the people using JRubyFX seem to not use it), FXML is very useful. Supporting FXML in JRubyFX was tricky, as the JavaFX `FXMLLoader` reads the FXML to build classes and set fields. It does this by using reflection to call the no-arg constructor of the named class in the FXML. This is where I ran into trouble in 2012, but is now fixed, as of JRuby 9.3.1 (and utilized in JRubyFX 2.0). If you want to be able to call a constructor from Java for a Ruby class extending a Java class, now you can do so, and it's configurable:
+
+.Simple Construction Example
+[source,ruby]
+----
+require 'jruby/core_ext' # required for become_java! to do anything useful
+
+class ChaosParrot < java.io.InputStream
+    def initialize()
+        puts "ChaosParrot was initialized"
+        @percent = 0.1
+    end
+    
+    java_signature 'void setPercent(float)'
+    def setPercent(pct)
+        puts "Got percent: #{pct}"
+        @percent = pct
+    end
+    
+    java_signature 'void setStream(java.io.InputStream)'
+    def setStream(underlying)
+        puts "Got new stream"
+        @underlying = underlying
+    end
+    
+    # no java_signature necessary here, as it uses the inherited signatures
+    def read(*args)
+        # for other signatures, use parent
+        return super.read(*args) unless args.empty?
+        
+        # corrupt bytes randomly, as configured
+        return rand(256) ^ @underlying.read if rand <= @percent
+        @underlying.read
+    end
+    
+    new # if you directly `new` the class, become_java!
+    # is called if necessary for concrete-extension classes
+    # but you can always ensure it by calling become_java! directly
+end
+# call the constructor via Java Reflection API's
+us = ChaosParrot.java_class.constructor().newInstance
+# => ChaosParrot was initialized
+us # => #<ChaosParrot:0x1f2e3d4c>
+----
+
+This means that you can now use any Java object-construction libraries.  Here is a contrived continuation of this example using Spring to construct Ruby objects:
+
+NOTE: We use `ChaosParrot.java_class.name` to get the full name, as the `rubyobj` package is not considered stable release-to-release.
+
+CAUTION: We also must pass in an appropriate classloader. See below for issues related to classloading reified classes (both concrete and normal) from java.
+
+
+.Instantiating Ruby Objects from Java via Spring
+[source,ruby]
+----
+# ChaosParrot code from above continues here
+maven_require 'org.springframework', 'spring-context','5.3.16'
+require 'tempfile'
+Tempfile.open("beans.xml") do |beanxml|
+    File.write(beanxml.path, %Q|<?xml version="1.0" encoding="UTF-8"?>
+        <beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+            <bean id="myparrot" class="#{ChaosParrot.java_class.name}">
+                <property name="percent" value="0.25"/>
+            </bean>
+        </beans>|)
+    ctx = org.springframework.context.support.FileSystemXmlApplicationContext.new
+    ctx.config_location = "file:#{beanxml.path}"
+    ctx.class_loader = ChaosParrot.java_class.class_loader # See below about classloaders
+    ctx.refresh # load the beans!
+    # => ChaosParrot was initialized
+    # => Got percent: 0.25
+
+    # ...do stuff with ctx
+end
+
+----
+
+TIP: Getting type conversion errors about IRubyObject? Ensure you required `require 'jruby/core_ext'` as it is a no-op by default for `jrubyc` compatibility.
+
+Dumping the generated class shows us the method that JRuby generates:
+
+.Generated ChaosParrot Structure (disassembled with javap)
+[source,java]
+----
+public class rubyobj.ChaosParrot extends InputStream implements ReifiedJavaProxy {
+  // Java-reflection constructor
+  public ChaosParrot();
+  
+  // Internal JRuby constructors (::new)
+  public ChaosParrot(Ruby, RubyClass);
+  public synthetic ChaosParrot(ConcreteJavaProxy, IRubyObject[], Block, Ruby, RubyClass);
+  protected synthetic ChaosParrot(ConcreteJavaProxy, boolean, IRubyObject[], Block, Ruby, RubyClass);
+  public static {};
+  
+  // Our new methods
+  public void setStream(InputStream);
+  public void setPercent(float);
+  
+  // Overrides for read (all overloads always added)
+  public int read();
+  public int read(byte...);
+  public int read(byte[], int, int);
+  
+  // bridge methods so super works (Internal JRuby implementation details)
+  // Note only 2 here, as read() is abstract in the parent
+  public bridge synthetic int __super$\=rubyobj\,ChaosParrot$read(byte[]);
+  public bridge synthetic int __super$\=rubyobj\,ChaosParrot$read(byte[], int, int);
+  
+  // internal JRuby API (ReifiedJavaProxy)
+  public synthetic IRubyObject ___jruby$rubyObject();
+  public synthetic JavaProxyClass ___jruby$proxyClass();
+}
+
+----
+
+CAUTION:  Because internally JRuby has the proxy Java class, as well as the Ruby class, and it needs to initialize both of them no matter if initialized from Ruby code via `::new` or Java code via `newInstance`, a limitation currently applies to `super(...)` calls in the configured constructor method (typically `initialize`, see below): there can be at most one `super(...)`, with no conditionals over it.
+
+TIP: If you are curious how these two halves are initialized together, https://github.com/jruby/jruby/pull/6422#issuecomment-748414730[this initialization diagram] is a good place to start
+
+One potentially tricky thing, is that of which method to call in initialization. This is particularly acute for JavaFX as the "fxml is loaded" method is called `initialize`, shadowing the Ruby constructor of the same name. Luckily, the new constructor support in 9.3 allows reconfiguring many aspects of this interaction, owing to the fact that it is merely a proxy generator for Java. 
+
+In the example below, the method defined as `#initialize` is never used, as `::new` has been redefined (via `configure_java_class`) to call `#java_ctor`, and calling `.initialize` from Java is re-routed to `#normal_method`. By default JRuby, excludes `#initialize` from generation, so we must explicitly include it here.
+
+CAUTION: Class configuration using `configure_java_class` is only fully enabled for concrete extension (aka Ruby-subclassing-Java) as of 9.3.4. Non-concrete extension (no Java superclasses) is not fully enabled. There is a bug about this https://github.com/jruby/jruby/issues/7122[issue #7122].
+
+.Configuring Java Proxy Class Generation Parameters
+[source,ruby]
+----
+require 'jruby/core_ext' # required for become_java! to do anything useful
+
+# configuring classes only works for concrete classes right now (JRuby 9.3.4)
+# so we extends java.lang.Object to force this to be a concrete-extended class
+class ConfiguredProxy < java.lang.Object
+    def initialize
+        puts "I shouldn't be called"
+    end 
+    def java_ctor
+        puts "The ctor was called"
+    end
+    def standard_method
+        puts "The non-ctor was called"
+    end
+    configure_java_class(ctor_name: "java_ctor") do
+        dispatch :initialize, :standard_method # java initialize will call standard_method
+        include :initialize # excluded by default
+    end
+    become_java!
+end
+ConfiguredProxy.new
+# => The ctor was called
+inst = ConfiguredProxy.java_class.constructor().newInstance
+# => The ctor was called
+ConfiguredProxy.java_class.get_method("initialize").invoke(inst)
+# => The non-ctor was called
+
+# you can stil call standard_method directly too, since 
+# it wasn't excluded or redefined
+ConfiguredProxy.java_class.get_method("standard_method").invoke(inst)
+# => The non-ctor was called
+
+----
+
+Decompiling the result shows that some of our changes (`dispatch`, `include`) are baked into the class file itself, while others (`ctor_name`) can still be edited after class generation:
+
+.Generated ConfiguredProxy (decompiled)
+[source,java]
+----
+public class ConfiguredProxy implements ReifiedJavaProxy {
+   // ...bookkeeping fields snipped... (see end for full listing)
+   // ...some constructors snipped...
+
+   // Java no-arg constructor
+   public ConfiguredProxy() {
+      this(new ConcreteJavaProxy(ruby, rubyClass), false, IRubyObject.NULL_ARRAY, Block.NULL_BLOCK, ruby, rubyClass);
+   }
+
+   protected synthetic ConfiguredProxy(ConcreteJavaProxy var1, boolean var2, IRubyObject[] var3, Block var4, Ruby var5, RubyClass var6) {
+      this.this$rubyObject = var1;
+      // the splitInitialized & finishInitialize calls here will invoke whichever
+      // ruby method is configured as :ctor_name in configure_java_class
+      SplitCtorData state = var1.splitInitialized(var2 ? rubyClass : var6, var3, var4, this$rubyCtorCache);
+      // snipped bookkeeping...
+         super();
+         var1.setObject(this);
+         var1.finishInitialize(state);
+      // snipped bookkeeping...
+   }
+
+   // Since we didn't specify the signature, it returns 
+   // Ruby objects as the default
+   public IRubyObject standard_method() {
+      this.this$rubyObject.ensureThis(this);
+      return this.this$rubyObject.callMethod("standard_method");
+   }
+
+   // the configured dispatch is seen here, dispatching 
+   // to a differently-named method
+   public IRubyObject initialize() {
+      this.this$rubyObject.ensureThis(this);
+      return this.this$rubyObject.callMethod("standard_method");
+   }
+
+   // No dispatch configuration, uses same name
+   public IRubyObject java_ctor() {
+      this.this$rubyObject.ensureThis(this);
+      return this.this$rubyObject.callMethod("java_ctor");
+   }
+   
+   // ...bookkeeping methods snipped...
+}
+
+----
+
+== Fields
+Java/JVM fields and Ruby instance variables are different: fields are fixed, and can be public, protected, or private, while instance variables are only protected, but are dynamic. Nonetheless, when porting Java code to Ruby, or vice-versa, they are typically replaced with each other. JRuby, however, exposes fields differently than instance variables. Fields are accessed by named getters and setters on self, and not related to instance variables (you can set a field and an instance variable of the same name to different values!). If you are accessing existing Java objects this is one thing, but how do you create a Java field on a reified Ruby object, whether concrete-extended or not? With `java_field`. Here is a contrived example using Jackson, a JSON serializer for Java (Please use one of the ruby serializers in real code, this is just an example of a java library reading fields):
+
+
+.Serializing Reified Ruby Classes with Jackson
+[source,ruby]
+----
+require 'jruby/core_ext' # required for become_java! to do anything useful
+maven_require 'com.fasterxml.jackson.core:jackson-databind'
+
+# If we are a pure ruby class, internal JRuby fields will be present.
+# To avoid unnecessary methods and fields on the resulting Java Class, 
+# we decend from Java Object, not Ruby Object
+class FieldedClass < java.lang.Object
+    java_field 'java.lang.String mystr'
+    def initialize(mystr = nil)
+        super() # j.l.Object requires no args
+        self.mystr = mystr if mystr != nil
+    end
+    become_java!
+end
+om = com.fasterxml.jackson.databind.ObjectMapper.new
+str = om.write_value_as_string(FieldedClass.new("foo"))
+# => "{\"mystr\": \"foo\"}
+om.read_value(str, FieldedClass.java_class).mystr
+# => "foo"
+----
+
+This isn't very idiomatic Ruby. If we are willing to sacrifice some of the expected semantics of ruby instance variables, we can, as of JRuby 9.3.4, tie the instance variables and the fields together. Instead of being able to store two different values in `@name` and `self.name`, they are aliases
+
+.Serializing Reified Ruby Classes with Jackson, using Instance Variables
+[source,ruby]
+----
+class InstancedClass < java.lang.Object
+    java_field 'java.lang.String mystr', instance_variable: true
+    def initialize(mystr = nil)
+        super()
+        @mystr = mystr if mystr != nil
+    end
+    become_java!
+end
+str = om.write_value_as_string(InstancedClass.new("foo"))
+# => "{\"mystr\": \"foo\"}
+om.read_value(str, InstancedClass.java_class).mystr
+# => "foo"
+----
+
+
+CAUTION: `@name.equals?(@name)` may be false in some cases when using this configuration
+
+CAUTION: A frozen object can have all instance variables using this configuration modified. Instance variables using this configuration  do not respect if an object is frozen or not.
+
+CAUTION: JVM semantics, not Ruby Semantics, apply when using this configuration
+
+Disassembling, we see this has no affect on the generated proxy class:
+
+.Generated InstancedClass & FieldedClass Structure (disassembled with javap)
+[source,java]
+----
+public class FieldedClass implements ReifiedJavaProxy {
+  public java.lang.String mystr;
+  public FieldedClass();
+  // snipped internal ctors and internal JRuby API methods
+}
+public class InstancedClass implements ReifiedJavaProxy {
+  public java.lang.String mystr;
+  public InstancedClass();
+  // snipped internal ctors and internal JRuby API methods
+}
+----
+
+
+== Annotations
+JRuby 9.3 partly unified the annotation API between `become_java!` on a pure-ruby class, a concrete-extension Ruby class, and using `jrubyc` (class-methods only, package and class annotations are not mutually supported). Now the class methods work equally well and with the same syntax:
+
+[source, ruby]
+----
+class MyClass
+    java_field 'full.Type name'
+    java_field '@full.Annotation() full.Type name'
+    
+    java_signature 'full.Type myMethod(primitive, full.Type)'
+    java_signature '@full.Annotation() full.Type myMethod(primitive, full.Type)'
+    def myMethod(*args)
+        #...
+    end
+end
+----
+
+We can extend the example from the previous section to have annotations that affect the behavior of Java libraries:
+
+.Annotations on Generated Java Classes with Jackson
+[source, ruby]
+----
+maven_require 'com.fasterxml.jackson.core', 'jackson-databind'
+
+# we extend the Java Object for the same reasons as the previuos example
+class AnnotatedClass < java.lang.Object
+    # Note we can't use java_annotation ouside of the class, that is jrubyc only
+    add_class_annotations com.fasterxml.jackson.annotation.JsonRootName => {"value" => "user"}
+    
+    java_field '@com.fasterxml.jackson.annotation.JsonIgnore java.lang.String mystr'
+    java_field 'int myint'
+    
+    java_signature '@com.fasterxml.jackson.annotation.JsonSetter(value="phantom") void printItOut(boolean)'
+    def printItOut(p)
+        puts "Phantom set to: #{p}"
+    end
+    become_java!
+end
+om = com.fasterxml.jackson.databind.ObjectMapper.new
+om.enable(com.fasterxml.jackson.databind.SerializationFeature::WRAP_ROOT_VALUE)
+om.write_value_as_string(AnnotatedClass.new.tap{|x|x.myint=9})
+# => "{\"user\":{\"myint\":9}}"
+ac = om.read_value('{"myint":314,"phantom":true}', AnnotatedClass.java_class)
+# Phantom set to: true
+ac.myint
+# => 314
+----
+
+TIP: Can I avoid typing the package name of the class? Not as of JRuby 9.3. It is https://github.com/jruby/jruby/issues/5486[issue #5486]
+
+Examining the generated class, we can see it did annotate as we requested:
+
+.Generated AnnotatedClass Structure (decompiled)
+[source,java]
+----
+@JsonRootName("user")
+public class AnnotatedClass implements ReifiedJavaProxy {
+   // snipped private implementation fields
+   
+   @JsonIgnore
+   public String mystr;
+   
+   public int myint;
+
+   @JsonSetter("phantom")
+   public void printItOut(boolean var1) {
+      // ...
+   }
+   // snipped internal JRuby API parts
+}
+----
+
+== JRubyFX 2.0
+After all of these changes in JRuby 9.3.4, the JRubyFX gem can finally dump its FXML hacks and use the existing FXMLLoader by taking advantage of these new features.
+
+So, how does JRubyFX use these features for loading FXML?
+Every request for loading FXML starts by us loading the file and pulling out all the expected field names from the `fx:id` attributes, and the `onEvent` expected event handlers
+For each of these names, we call java_field with the FXML annotation, field name, and request that the instance variables are mapped to the fields. This makes the API seem more Ruby-like while two copies of variables. Additionally, most of the pitfalls are likely avoided as these instance variables are typically read, not written, once the FXML file has been loaded.
+For each of the event handlers, we define an appropriate event handler method using `java_method` with the fxml annotation and event handler name
+We configure the class for a Java-accessible constructor
+We call `become_java!` and pass the concrete-extended reified class off to the JavaFX FXMLLoader
+
+As such, users can experience a straightforward integration experience. For example, while the JVM class is a static and unchangeable interface, by defining all the expected methods and fields, user Ruby code can muck with the class as long as those methods stay defined.
+
+Here are some snippets of the above features when integrated into JRubyFX use. Plus, some of the interesting bits of the JRubyFX implementation. See the full working example these were taken from under https://github.com/jruby/jrubyfx/tree/master/samples/contrib/fxmltableview[samples/contrib/fxmltableview].
+
+TIP: I recommend using Zulu+FX JDK builds for JRubyFX as it is pre-packaged with JavaFX, but any JDK with JavaFX should work (Java 8 and later)
+
+.Fragments of fxmlloader JRubyFX example & JRubyFX implementation
+[source, ruby]
+----
+# user usage
+class FormattedTableCellFactory
+  include Java::javafx.util.Callback
+  include JRubyFX
+
+  # see below for fxml_raw_accessor definition
+  fxml_raw_accessor :alignment, Java::javafx.scene.text.TextAlignment
+  fxml_raw_accessor :format, java.text.Format
+
+  def call(param)
+    cell = FormattedTableCellFactory_TableCell.new(@format)
+    cell.setTextAlignment(@alignment)
+    # ...
+  end
+  # ...
+end
+
+# library definition
+module JRubyFX
+    # ...
+    def fxml_raw_accessor(symbol_name, type=java::lang::String)
+      # ...
+      # fieldNameGetType() is an extention to standard bean style
+      # getters/setters in JavaFX
+      java_signature "java.lang.Class " + symbol_name.id2name + "GetType()"
+      send(:define_method, symbol_name.id2name + "GetType") do
+        return type.java_class
+      end
+      # define the field as fxml-capable
+      java_field "@javafx.fxml.FXML #{type.java_class.name} #{symbol_name}", instance_variable: true
+    end
+end
+
+# user usage
+class FXMLTableViewController
+  include JRubyFX::Controller
+  
+  # this method call defines all the methods and fields in the provided file
+  fxml "fxml_tableview.fxml"
+
+  # event handler from the fxml
+  def addPerson
+    # the tableview and the fields are
+    # accessable as instance variables
+    data = @tableView.items
+    data.add(Person.new(@firstNameField.text, ...))
+
+    @firstNameField.text = ""
+    # ...
+  end
+  # ...
+end
+
+# library definition
+module JRubyFX::FxmlHelper
+    # ...
+    def self.transform(clazz, ...) # called by fxml in the user code above
+        # ...
+        while xmlStreamReader.hasNext
+            # lots of xml processing ...
+            
+            # if it is an id, save the id and annotate it as injectable by JavaFX. Default to object since the FXMLLoader doesn't care...
+            if localName == "id" and prefix == FXMLLoader::FX_NAMESPACE_PREFIX
+              clazz.instance_eval do
+                # Note: we could detect the type, but Ruby doesn't care, and neither does JavaFX's FXMLLoader 
+                java_field "@javafx.fxml.FXML java.lang.Object #{value}", instance_variable: true
+              end
+            # otherwise, if it is an event, add a forwarding call
+            elsif localName.start_with? "on" and value.start_with? "#"
+              name = value[1..-1] # strip hash
+              clazz.instance_eval do
+                # add the fxml signature and correct param count
+                java_signature "@javafx.fxml.FXML void #{name}(javafx.event.Event)"
+              end
+            end
+            # ...
+        end
+        # ...
+        clazz.become_java!
+    end
+end
+----
+
+.fxmltableview sample FXML selection (fxml_tableview.fxml)
+[source, xml]
+----
+<GridPane alignment="CENTER" hgap="10.0" vgap="10.0" xmlns:fx="http://javafx.com/fxml">
+  <!-- ... -->
+  <!-- saved in the controller instance variable -->
+  <TableView fx:id="tableView" GridPane.columnIndex="0" GridPane.rowIndex="1">
+    <columns>
+      <TableColumn prefWidth="100.0" text="First Name" fx:id="firstNameColumn">
+        <cellFactory>
+          <!-- Build our Ruby class, defined above -->
+          <FormattedTableCellFactory alignment="CENTER" />
+        </cellFactory>
+        <!-- ... -->
+      </TableColumn>
+      <!-- ... -->
+    </columns>
+    <!-- ... -->
+  </TableView>
+  <HBox alignment="BOTTOM_RIGHT" spacing="10.0" GridPane.columnIndex="0" GridPane.rowIndex="2">
+    <TextField fx:id="firstNameField" prefWidth="90.0" promptText="First Name" />
+    <!-- ... -->
+    <!-- tied to a our controller method -->
+    <Button onAction="#addPerson" text="Add" />
+  </HBox>
+</GridPane>
+----
+
+Decompiling some of these classes, we can see the generated fields, method, constructors, and annotations:
+
+.Select Decompiled Generated Classes from fxmltableview Sample
+[source, java]
+----
+
+public class FormattedTableCellFactory extends RubyObject implements Reified, Callback {
+   // snip...
+   @FXML
+   public TextAlignment alignment;
+   @FXML
+   public Format format;
+
+   public FormattedTableCellFactory();
+
+   public TextAlignment getAlignment();
+   public void setAlignment(TextAlignment var1);
+   public Class alignmentGetType();
+
+   public Format getFormat();
+   public void setFormat(Format var1);
+   public Class formatGetType();
+   
+   // snip...
+}
+public class FXMLTableViewController extends RubyObject implements Reified {
+   // snip...
+   @FXML
+   public Object tableView;
+   @FXML
+   public Object firstNameColumn;
+   @FXML
+   public Object firstNameField;
+   @FXML
+   public Object lastNameField;
+   @FXML
+   public Object emailField;
+
+   // Event Handler
+   @FXML
+   public void addPerson(Event var1);
+
+   // snip...
+}
+----
+
+== Gotchas: Classloading Ruby Classes
+
+If you are looking up and building Ruby objects from Java code or libraries, pay attention to the classloaders. As of JRuby 9.3.4, no supported built-in way exists to look up reified Ruby classes from Java. If you only need to build one class, you can do what the above Spring demo did, and pass in the single-class classloader of the reified class: `MyClass.java_class.classloader`. If you need multiple class lookup, you need to write a new classloader.
+
+Here is a slightly modified version of the JRubyFX classloader that may be a helpful jumping off point. Note that you must decide where to "mount" your classes, as the built-in `rubyobj` is not guaranteed to be stable. This mounts all Ruby classes under "Object":
+
+
+.Reified Ruby Classloader for Java
+[source, ruby]
+----
+# This is a minimal classloader only for classes, resources not supported
+class PolyglotClassLoader < java.lang.ClassLoader
+    def initialize()
+      super(JRuby.runtime.jruby_class_loader)
+      @prefix = "Object."
+    end
+    java_signature "java.lang.Class findClass(java.lang.String name)"
+    def findClass(a)
+      return nil unless a.start_with? @prefix
+      a = a[@prefix.length..-1] # trim prefix
+      begin
+        return a.
+            split(".").
+            inject(Object){ |value, name|
+                value.const_get(name)
+            }.tap{|x|
+                x.become_java!
+            }.java_class
+      rescue NameError
+        raise java.lang.ClassNotFoundException.new("Could not find Ruby or Java class '#{a.gsub(/[.$]/, "::")}' or '#{a}'") # Must be a java CNF, not a Ruby Name Error
+      end
+    end
+    become_java!
+end
+----
+
+== Conclusion
+The new features in 9.3.4 make it much easier to integrate Ruby code with Java code doing lots of reflection. Happy Hacking!
+
+
