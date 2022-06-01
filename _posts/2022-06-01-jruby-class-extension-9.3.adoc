@@ -1,4 +1,4 @@
-= Generating Java Classes at runtime with JRuby 9.3.4
+= Generating Java Classes at Runtime with JRuby 9.3.4
 Patrick Plenfisch
 :doctype: article
 :encoding: utf-8
