@@ -16,9 +16,9 @@ jobs:
         key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile') }}
         restore-keys: |
           ${{ runner.os }}-gems-
-   - uses: actions/setup-python@v2
-     with:
-       python-version: 3.9
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
 
     # Standard usage
     - uses:  helaili/jekyll-action@v2
