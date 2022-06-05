@@ -18,7 +18,7 @@ jobs:
           ${{ runner.os }}-gems-
     - name: List Pythons
       run: |
-        ls /usr/bin/
+        python3 -V
         which python
         python -V
         which python3
@@ -26,3 +26,4 @@ jobs:
     - uses:  helaili/jekyll-action@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        target_path: _site
