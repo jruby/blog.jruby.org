@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : JRuby and ClojureScript Goodness
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2011/11/jruby-clojurescript" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>JRuby and ClojureScript Goodness</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:cwprogram@live.com" rel="email">Chris White</a>
+      <i>on</i> <time pubdate datetime="2011-11-11">November 11, 2011</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>While Java is a major language on the JVM, it’s not the only one JRuby can interface with. JRuby can work with other JVM languages such as Scala, Groovy, and Clojure. JRuby committer Yoko Harada (<a href="https://twitter.com/#!/yokolet">@yokolet</a>) has been doing some interesting work with <a href="https://github.com/clojure/clojurescript">ClojureScript</a>, a Clojure to JS compiler. This post will take a look at how JRuby was used to help bring ClojureScript to Tilt, and in doing so the Rails Asset Pipeline.</p>
+
+<h2 id="clojurescript-and-tilt">ClojureScript and Tilt</h2>
+
+<p>The first experiment was getting ClojureScript to work with <a href="https://github.com/rtomayko/tilt">Tilt</a>, which is a “Generic interface to multiple Ruby template engines”. Yoko’s blog post <a href="http://yokolet.blogspot.com/2011/11/tilt-template-for-clojurescript.html">Tilt Template for ClojureScript</a> describes the process of getting the two technologies to work together. JRuby’s jar import functionality was used to interact with the ClojureScript related jars, which allowed Ruby to be used to bring everything together. For those interested in taking a look, there is a <a href="https://github.com/yokolet/clementine">git repository</a> with the code available to check out.</p>
+
+<h2 id="clojurescript-and-the-rails-asset-pipeline">ClojureScript and The Rails Asset Pipeline</h2>
+
+<p>It doesn’t stop there though! Since ClojureScript was available to Tilt, the next step was seeing if that could be used to interface with the <a href="http://guides.rubyonrails.org/asset_pipeline.html">Rails Asset Pipeline</a>. The guide has a short snippet on registering gems with Tilt to get them recognized by Sprockets, which Yoko describes in the blog post <a href="http://yokolet.blogspot.com/2011/11/clojurescript-on-rails-asset-pipeline.html">ClojureScript on Rails Asset Pipeline</a>. A great example of how JRuby can be use to do cool things with cool JVM technologies! This is also another reason to keep your eyes on the <a href="https://github.com/yokolet/clementine">git repository</a> to watch for new developments.</p>
+
+<h2 id="you-can-do-closure-too">You Can Do Closure Too!</h2>
+
+<p>ClojureScript uses the <a href="http://code.google.com/closure/">Google Closure compiler</a> behind the scenes to make the JS compilation process happen. <a href="http://www.instellaplatform.com/">Instella</a> CEO <a href="https://twitter.com/#!/dylancvaughn">Dylan Vaughn</a> was inspired by a post on Closure Templates Discuss titled <a href="https://groups.google.com/group/closure-templates-discuss/browse_thread/thread/50d977fcc121953b">Closure Templates in Ruby</a> to take a look on bringing JRuby and Closure together. Using some code for using <a href="https://github.com/igrigorik/closure-sprockets">Closure’s soy compiler with the Rails Asset Pipeline</a> by Googler <a href="https://twitter.com/#!/igrigorik">Ilya Grigorik</a>, he was able to interface the two together. The result of this is the <a href="https://github.com/dylanvaughn/closure-templates">closure-templates gem</a>, installable with <code class="language-plaintext highlighter-rouge">gem install closure-templates</code>. Be sure to check it out!</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2011/11/jruby-clojurescript';
+      var disqus_title      = 'JRuby and ClojureScript Goodness';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

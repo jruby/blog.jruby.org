@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : Rails 3.2 and Rubygems.org source
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2012/01/rubygems-https" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>Rails 3.2 and Rubygems.org source</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:nick@nicksieger.com" rel="email">Nick Sieger</a>
+      <i>on</i> <time pubdate datetime="2012-01-31">January 31, 2012</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>We announced this on Twitter, but it’s important enough to put here
+for posterity.</p>
+
+<blockquote class="twitter-tweet"><p>FYI, since 3.2 <a href="https://t.co/Zxl4M5tA" title="https://rubygems.org">rubygems.org</a> is the default Gemfile source, this means you need to have jruby-openssl installed before "rails new".</p>&mdash; JRuby Dev Team (@jruby) <a href="https://twitter.com/jruby/status/164376150209069056" data-datetime="2012-01-31T15:55:02+00:00">January 31, 2012</a></blockquote>
+<script src="//platform.twitter.com/widgets.js" charset="utf-8">
+</script>
+
+<p>To clarify, the following is put in <code class="language-plaintext highlighter-rouge">Gemfile</code> for new Rails 3.2 apps:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>source 'https://rubygems.org'
+</code></pre></div></div>
+
+<p>This means that the <code class="language-plaintext highlighter-rouge">jruby-openssl</code> gem <em>must be installed</em> before you
+can generate a new Rails application.</p>
+
+<p>An alternative is to run <code class="language-plaintext highlighter-rouge">rails new --skip-bundle</code>, ensure
+<code class="language-plaintext highlighter-rouge">jruby-openssl</code> is installed, and then run <code class="language-plaintext highlighter-rouge">bundle install</code> inside
+your new application.</p>
+
+<p>We’re looking at options for incorporating more of jruby-openssl into
+JRuby proper without importing the export-controlled crypto bits
+(which is the reason we don’t currently ship <code class="language-plaintext highlighter-rouge">jruby-openssl</code> with
+JRuby). If you’re <a href="https://github.com/jruby/jruby-ossl/">interested, join us</a>.</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2012/01/rubygems-https';
+      var disqus_title      = 'Rails 3.2 and Rubygems.org source';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

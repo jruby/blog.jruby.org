@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : JRuby 9000
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2015/07/jruby_9000" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>JRuby 9000</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:team@jruby.org" rel="email">The JRuby Team</a>
+      <i>on</i> <time pubdate datetime="2015-07-22">July 22, 2015</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>After years of work, we’re proud to announce the release of <a href="http://jruby.org/2015/07/22/jruby-9-0-0-0.html">JRuby 9000</a>!</p>
+
+<p>JRuby is an implementation of the Ruby programming language atop the Java virtual machine, bringing true parallelism, increased performance, and top-notch garbage collectors to the Ruby world. You can call into other JVM languages, deploy on Java servers, and take advantage of the massive Java tooling ecosystem. At the same time, “It’s Just Ruby”… we pride ourselves on compatibility and on being a Ruby implementation <em>first</em>, and a JVM language <em>second</em>.</p>
+
+<p>We’ve put an enormous amount of effort into this release, and we wanted to share with you why we’re so excited.</p>
+
+<h2 id="compatibility">Compatibility</h2>
+
+<p>During JRuby 1.7.x we had the brilliant idea to support multiple compatibility
+levels of Ruby from the same runtime.  If you passed ‘–1.8’ you would be
+running JRuby in 1.8.7 compatibility mode. Passing ‘–1.9’ would be running
+in1.9.3 compatibility mode.</p>
+
+<p>As it turned out this ended up being extremely messy internally.  We were forced
+to start versioning method names (e.g. inspect or
+inspect19).  We would get bug reports where we had a 1.9 method
+calling a 1.8 method which did the wrong thing.  We confused people making
+native extensions – “which method do I call?”  In hindsight, this idea was
+too difficult to maintain.</p>
+
+<p>For JRuby 9000 we only support a single version of Ruby.  For 9.0.0.0 we will
+support Ruby 2.2, the current version of Ruby.  As new versions of Ruby come out you should expect to see
+a version of JRuby come out that supports the same features.</p>
+
+<h2 id="versioning">Versioning</h2>
+
+<p>JRuby 9000 is the ninth major release of JRuby. We opted to go with 9000 as a code name and 9.0.0.0 as a version number to separate it from Ruby’s version numbers (1.8, 1.9, 2.0 etc). We frequently ran into confusion about our version numbers versus Ruby’s, and neither “1.8” nor “2.0” would do anything but make that worse.</p>
+
+<p>Going forward, expect to see maintenance releases versioned as 9.0.x and Ruby compatibility updates numbered as 9.x.</p>
+
+<h2 id="new-runtime">New Runtime</h2>
+
+<p>More than five years ago Subramanya Sastry (subbu) expressed an interest in
+helping us work on a new runtime for JRuby.  It was based, in part, on his
+PhD experience designing a static optimizing compiler for Java.  From this
+beginning, we have worked with subbu to build a new runtime (called IR) which
+will look pretty familiar to anyone who has ever taken a compiler course in
+college.</p>
+
+<p>For JRuby 9000, this new runtime runs things about as fast as JRuby 1.7 but we
+have years worth of plans for improving performance.  At this point, we are
+only executing conservative static optimizations. Over the next several months
+we will start enabling profiled optimizations and things will start to get
+exciting.  The ability to perform more aggressive optimizations like unboxed
+math and inlining methods and the blocks they call will open up
+an entire new dimension for JRuby’s performance.</p>
+
+<p>IR is the beginning of a new road for performance for JRuby.  We hope to
+ship continual performance improvements during our point releases.</p>
+
+<h2 id="native-process-and-io">Native Process and IO</h2>
+
+<p>During the JRuby 9000 dev cycle, we decided it was time to improve the POSIX behavior of our Process and IO subsystems.
+In C Ruby, IO and Process are implemented directly atop the standard C library functions. As a result, they reflect behaviors
+often hidden when running Java applications, where those APIs are wrapped in many layers of abstraction. For example, a
+subprocess launched from Java can’t be read from in a nonblocking way, can’t be signaled, can’t inherit open files and
+from the parent process, and many other limitations. In short, we realized we’d need to go native to be truly compatible.</p>
+
+<p>JRuby 9000 now uses native operations for much of IO and almost all of Process. This makes us the first
+POSIX-friendly JVM language, with full support for spawning processes, inheriting open streams, perfoming nonblocking
+operations on all types of IO, and generally fitting well into a POSIX environment.</p>
+
+<h2 id="years-of-work">Years of Work</h2>
+
+<p>We first started talking about the next JRuby a few years ago, and the IR work started years before that. JRuby 9000 represents
+the largest (by far!) release we’ve ever done.</p>
+
+<ul>
+  <li>Just counting the time since we branched, there have been over 5500 commits by 104 contributors. That’s a rate of 7 commits
+<em>per day</em> for two years.</li>
+  <li>We fixed 468 issues during our preview and release candidate cycle. Your bug reports were crucial to delivering a high quality release.</li>
+</ul>
+
+<p>With all the work that has gone into JRuby 9000, we’re very proud of what we’ve achieved.</p>
+
+<h2 id="installing-jruby">Installing JRuby</h2>
+
+<p>JRuby 9000 can be installed in the same ways as previous versions. If you are using Windows, we recommend the <a href="https://github.com/jruby/jruby/wiki/GettingStarted#microsoft-windows">Windows Executable installer</a>. If you are using Linux or Mac OS X, we recommend <a href="https://github.com/jruby/jruby/wiki/GettingStarted#using-rvm">using RVM</a> by running the command <code class="language-plaintext highlighter-rouge">rvm install jruby-9.0.0.0</code>.</p>
+
+<p>You can also install the JRuby 9000 binaries by downloading the latest TAR or ZIP file from the JRuby Downloads page, and putting the bin directory on your PATH. For more information on installing JRuby, see the <a href="https://github.com/jruby/jruby/wiki/GettingStarted">Getting Started with JRuby</a> guide on the Wiki.</p>
+
+<h2 id="your-turn">Your Turn</h2>
+
+<p>We’re a very friendly community and we welcome all users to our <a href="http://lists.ruby-lang.org/cgi-bin/mailman/listinfo/jruby">mailing list</a>, our IRC channel (#jruby on Freenode), and our <a href="https://twitter.com/jruby">team Twitter account</a>. File bugs against our <a href="https://github.com/jruby/jruby">Github project</a> and check out our <a href="http://jruby.org/community">community page</a> for more information.</p>
+
+<p>Welcome to the future…<a href="http://jruby.org/2015/07/22/jruby-9-0-0-0.html">JRuby 9000</a> is here!</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2015/07/jruby_9000';
+      var disqus_title      = 'JRuby 9000';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

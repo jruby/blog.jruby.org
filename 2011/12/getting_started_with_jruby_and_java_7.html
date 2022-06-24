@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : Getting Started with JRuby and Java 7
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2011/12/getting_started_with_jruby_and_java_7" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>Getting Started with JRuby and Java 7</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:headius@headius.com" rel="email">Charles Oliver Nutter</a>
+      <i>on</i> <time pubdate datetime="2011-12-19">December 19, 2011</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>Unless you’ve been living under a rock, you’ve probably heard about the new hotness for JRuby:
+Java 7’s support for dynamic languages. You may also have heard about the huge perf gains
+that JRuby’s seeing when running on Java 7. How can you try it yourself?</p>
+
+<h2 id="get-java-7">Get Java 7</h2>
+
+<p>The reference implementation for Java is <a href="http://openjdk.java.net/">OpenJDK</a>, and
+<a href="http://openjdk.java.net/projects/jdk7/">OpenJDK 7</a> has been out for almost six months now.
+The current version is 7u2 (‘u’ stands for ‘update’), and includes a
+<a href="http://www.oracle.com/technetwork/java/javase/2col/7u2bugfixes-1394661.html">number of improvements</a>
+over the GA (‘General Availability’) release.</p>
+
+<p>Most platforms have easy access to OpenJDK builds. I’ll summarize the steps here.</p>
+
+<h3 id="linux-windows-and-solaris">Linux, Windows, and Solaris</h3>
+
+<p>Oracle provides binary downloads for Windows, Linux, and Solaris on its site. The <a href="http://www.oracle.com/technetwork/java/javase/downloads/index.html">JavaSE
+Downloads</a> page links to
+both JDK and JRE download pages. You’ll probably want the JDK, since it includes other
+JVM-related dev tools, but the JRE will work too. Download, install, and you’re ready.</p>
+
+<p>Additionally, package managers for Linux and Solaris will likely soon have OpenJDK 7u2
+packages available, if they don’t already.</p>
+
+<h3 id="os-x">OS X</h3>
+
+<p>The official <a href="http://jdk7.java.net/macportpreview/">preview of OpenJDK for OS X</a> lags behind,
+but you can get the current builds from the
+<a href="http://code.google.com/p/openjdk-osx-build/">openjdk-osx-build</a> project. The build
+you want is currently labeled “OpenJDK-OSX-1.7-x64-u2-b21”, but any build labeled “1.7”
+and “u2” in the future will get what you need. The .dmg provides either a self-contained
+JDK for you to drop onto your system or a .pkg installer that does it for you.</p>
+
+<p><em>Update</em>: Henri Gomez, the primary guy behind openjdk-osx-build, has set up a page specifically
+for the update builds. Grab the JDK or JRE from his
+<a href="http://code.google.com/p/openjdk-osx-build/wiki/OpenJDK7JDK7UOSX">OpenJDK7JDK7UOSX</a> page.</p>
+
+<p><em>Update 2</em>: Oracle now has a supported build of <a href="http://www.oracle.com/technetwork/java/javase/downloads/jdk-7u4-downloads-1591156.html">Java 7 update 4 for OS X</a>, so you can get it
+from them! It only supports Lion, though, so if you’re on Snow Leopard you will still need
+to use a build from Henri or build it yourself.</p>
+
+<h3 id="bsd">*BSD</h3>
+
+<p>The OS X work is based off the “bsd-port” branch of OpenJDK. There are links to Java 7 package
+information for FreeBSD, NetBSD, DragonFly BSD, and OpenBSD on the
+<a href="https://wikis.oracle.com/display/OpenJDK/BSDPort">BSD Port wiki</a>. These may not be updated to
+7u2 yet.</p>
+
+<h2 id="why-update-2">Why Update 2?</h2>
+
+<p>We haven’t previously made a lot of noise about Java 7 and JRuby, nor assembled a
+blog post/tutorial like this, primarily because Java 7 GA was missing key optimizations
+in the invokedynamic subsystem. JRuby 1.7 will make heavy use of invokedynamic, and if we had
+released it before those optimizations were in place, it would have given people a bad
+impression of the power of invokedynamic.</p>
+
+<p>Update 2 now has a small set of optimizations that make a very large difference. If you intend
+to start playing with JRuby 1.7 builds, we strongly recommend you use OpenJDK 7u2 or higher.</p>
+
+<p><em>Update</em>: Your <code class="language-plaintext highlighter-rouge">jruby -v</code> output should look something like this:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>jruby 1.7.0.dev (ruby-1.8.7-p352) (2011-12-19 f404f75) (OpenJDK 64-Bit Server VM 1.7.0-u2-b21) [darwin-amd64-java]
+</code></pre></div></div>
+
+<p>The important bit is that “u2” appear somewhere in that line.</p>
+
+<h2 id="getting-jruby">Getting JRuby</h2>
+
+<p>Of course getting JRuby is always pretty easy.</p>
+
+<h3 id="jruby-16x-current-release">JRuby 1.6.x (current release)</h3>
+
+<p>The current release of JRuby is always available on the <a href="http://jruby.org">JRuby homepage</a>.
+Here, you’ll find tarballs, zipfiles, Windows installers, and JRuby in other forms. Download,
+unpack, add bin/ to PATH, and you’re ready.</p>
+
+<p>If you want to get the leading edge of the JRuby 1.6 line, including fixes that have not yet
+been released, you can download a nightly snapshot from JRuby’s
+<a href="http://ci.jruby.org/snapshots/release">release snapshots page</a>.</p>
+
+<p>You can also install JRuby through RVM or rbenv, using <code class="language-plaintext highlighter-rouge">rvm install jruby</code> or
+<code class="language-plaintext highlighter-rouge">rbenv install jruby-1.6.5</code>, respectively. This is our recommended procedure for folks
+already using RVM or rbenv. It’s also possible to build/install JRuby 1.6.x snapshots using
+<code class="language-plaintext highlighter-rouge">rvm install --branch jruby-1\_6 jruby-head</code>.</p>
+
+<p>Windows users may be interested in <a href="https://github.com/vertiginous/pik">pik</a>, an RVM-like
+tool for managing Ruby installations. It supports JRuby, naturally.</p>
+
+<p>There are also JRuby packages for most major Linux and BSD variants. They’re not always
+up-to-date, however.</p>
+
+<p>Finally, you can clone JRuby from the <a href="http://github.com/jruby/jruby">JRuby github repository</a>
+and build the jruby-1_6 branch.</p>
+
+<h3 id="jruby-17x-in-development">JRuby 1.7.x (in development)</h3>
+
+<p><em>Update:</em> <a href="http://www.jruby.org/2012/05/21/jruby-1-7-0-preview1">JRuby 1.7.0.preview1</a> has been released!
+We are very interested in bug reports for the new invokedynamic support, and wanted to get
+this preview out for people to test. There will be issues, don’t think for a moment there
+will not…but that’s what previews and release candidates are for. Help us make 1.7.0
+awesome!</p>
+
+<p>JRuby 1.7 is not out yet…we had been waiting for OpenJDK 7u2 to drop before starting
+our finalization process. But we’re looking for folks to start playing with it now. Until we
+release JRuby 1.7, you can get it a few different ways.</p>
+
+<p>Simplest is probably to grab a snapshot from the JRuby’s
+<a href="http://ci.jruby.org/snapshots/master">master snapshots page</a>. You’ll find the usual complement
+of packages and installers there.</p>
+
+<p>RVM can install JRuby master using <code class="language-plaintext highlighter-rouge">rvm install jruby-head</code>.</p>
+
+<p>And of course, you can clone from <a href="http://github.com/jruby/jruby">Github</a> and build the master
+branch yourself, by running <code class="language-plaintext highlighter-rouge">ant</code>. JRuby runs fine from the working copy.</p>
+
+<h2 id="use-the-right-java-version">Use the Right Java Version</h2>
+
+<p>Ironically, the most complicated part of this process is making sure your system is set up
+correctly to use Java 7 instead of some other version. The simple answer is to hardcode the
+Java 7 bin/ dir in your shell’s PATH, but that’s both inelegant and incompatible with some
+systems’ preferred mechanisms. Here’s a short survey of more elegant ways to easily swap Java
+versions.</p>
+
+<h3 id="linux">Linux</h3>
+
+<p>As with most things, Linux variants don’t agree on how to manage multiple alternative versions
+of a given package. Below I summarize the “blessed” way to do it on various Linux flavors.</p>
+
+<p>Alternatively, you can rig up a trivial shell function or script that, when run, rewrites your
+environment to point at the target Java installation. See the “pickjdk” script for OS X below.</p>
+
+<h4 id="debian-variants-debian-ubuntu-etc">Debian variants (Debian, Ubuntu, etc)</h4>
+
+<p>On Debian, your command of choice will be update-java-alternatives. This resets a set of
+global symlinks to point at the Java installation you prefer. It’s not the most elegant way,
+since the change is made globally, but it is the blessed way.</p>
+
+<h4 id="redhat-variants">RedHat variants</h4>
+
+<p>RedHat has a similar command called “alternatives”, under which there’s a “java” namespace.
+the JBoss 5 docs have a nice page on
+<a href="http://docs.redhat.com/docs/en-US/JBoss_Enterprise_Web_Platform/5/html/Installation_Guide/sect-use_alternatives_to_set_default_JDK.html">setting the default JDK on RHEL</a></p>
+
+<h4 id="gentoo-and-other-linux-variants">Gentoo and other Linux variants</h4>
+
+<p>I have so far been unable to find a way to easily manage multiple installed Java versions on
+Gentoo. Feel free to submit suggestions in the comments.</p>
+
+<p><em>Update</em>: Gentoo’s mechanism is the <code class="language-plaintext highlighter-rouge">java-config</code> command. <code class="language-plaintext highlighter-rouge">java-config -L</code> lists all
+installed runtimes, and <code class="language-plaintext highlighter-rouge">java-config -set X</code> sets the default to runtime X.</p>
+
+<h3 id="windows">Windows</h3>
+
+<p>On Windows, your best best is generally to put the preferred Java version’s bin/ dir in PATH.
+If you have other suggestions, feel free to comment.</p>
+
+<h3 id="os-x-1">OS X</h3>
+
+<p>Your best option will be to use the oft-tweaked “pickjdk” script, which scans installed JDK
+versions and presents a menu. Selecting a version rewrites your environment to point at that
+version. I prefer <a href="https://gist.github.com/1234935">my pickjdk variant</a>, since it allows specifying an install number directly
+without going through the menu.</p>
+
+<p>An alternative is to configure your environment manually. Java installations are located under
+<code class="language-plaintext highlighter-rouge">/Library/Java/JavaVirtualMachines</code>; set JAVA_HOME to
+<code class="language-plaintext highlighter-rouge">/Library/Java/JavaVirtualMachines/1.7.0u.jdk/Contents/Home</code>and prepend $JAVA_HOME/bin to
+your PATH. You’re ready to go.</p>
+
+<p><em>Update</em>: There’s an easy way to find available JAVA_HOMEs: the <code class="language-plaintext highlighter-rouge">java_home</code> command.
+<code class="language-plaintext highlighter-rouge">/usr/libexec/java_home</code> will return the path to the default JVM (from Java Preferences).
+You can also specify <code class="language-plaintext highlighter-rouge">-v 1.7</code> for the first Java 7 (1.7) install, or pass <code class="language-plaintext highlighter-rouge">-V</code> to
+list all available JVMs.</p>
+
+<p>You can also open up the Java Preferences utility (located in /Applications/Utilities)
+and drag your preferred Java version to the top. This is a <em>global</em> change, and will affect
+any programs that use the default Java version. Because the GUI parts of the OS X Java 7
+preview are still in development, THIS IS NOT RECOMMENDED.</p>
+
+<h3 id="other-oses">Other OSes</h3>
+
+<p>I don’t know the proper mechanism for managing Java installations on the other BSDs
+or on Solaris. Feel free to comment.</p>
+
+<h2 id="try-it-out">Try It Out!</h2>
+
+<p>Once you’ve got JRuby installed and in PATH (via whatever mechanism) and Java 7 installed
+and in PATH (via whatever mechanism), you’re ready to test it out! Start up <code class="language-plaintext highlighter-rouge">jirb</code>,
+launch your favorite JRuby-based app, or just run some benchmarks.</p>
+
+<p>If you’re especially interested in performance, try out
+<a href="https://raw.github.com/jruby/jruby/master/bench/bench_red_black.rb"><code class="language-plaintext highlighter-rouge">bench/bench_red_black.rb</code></a>
+from JRuby’s benchmark suite. It’s a pure-Ruby implementation and benchmark of a red/black
+tree, and a good representation of the kind of performance improvements you should see
+from JRuby on Java 7. There’s plenty of other benchmarks in our suite and in the wild…
+play around and let us know how it goes.</p>
+
+<h2 id="what-to-expect">What to Expect</h2>
+
+<p>Java 7 brings a lot of performance updates, even without invokedynamic. If you’re using JRuby
+1.6.x, you should see an immediate performance improvement moving from Java 6 to Java 7. I
+have heard reports of anywhere from 10-30% faster applications.</p>
+
+<p>If you’re trying out JRuby master (1.7), you should see even more significant improvements.
+JRuby 1.7’s use of invokedynamic means that Ruby code runs faster, optimizes better, and uses
+fewer resources. In fact, if you <em>don’t</em> see better performance with JRuby 1.7 versus JRuby
+1.6 on Java 7, please report an issue at <a href="http://bugs.jruby.org">JRuby’s bug tracker</a>. You’ve
+probably found a flaw in our compiler…a flaw we’ll want to fix before release.</p>
+
+<p>As a bit of a teaser, here’s <a href="https://gist.github.com/1493911">my numbers running the red/black tree benchmark</a>
+from above (the numbers are time in seconds). Compared to JRuby on Java 6, JRuby
+on Java 7 <em>without</em> invokedynamic is around 25% faster, and JRuby with invokedynamic is nearly
+<em>3 times</em> faster.</p>
+
+<p>It’s also worth mentioning that invokedynamic isn’t “done”. There’s a new optimizer planned for
+Java 7u4 and my OpenJDK friends tell me there are many opportunities to increase performance.
+JRuby on Java 7 will just keep getting faster.</p>
+
+<p>JRuby has room to grow as well. We’re using invokedynamic heavily for the upcoming 1.7 release,
+but there’s many places yet to be adapted. The performance you see today is not the end of the
+story…there’s a lot more we can do.</p>
+
+<h2 id="your-turn">Your Turn</h2>
+
+<p>That’s about it for this tutorial. Hopefully you’ll be up and running on JRuby with Java 7
+very quickly. If you have any trouble, please comment…we’ll try update this article with
+fixes and suggestions. And I repeat my call for feedback on JRuby master + Java 7…this is
+the future of JRuby, and it could be the future of high-performance Ruby. Let’s work together
+to make it awesome!</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2011/12/getting_started_with_jruby_and_java_7';
+      var disqus_title      = 'Getting Started with JRuby and Java 7';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : Using Trinidad to Run Multiple Apps
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2012/04/two-apps-one-trinidad" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>Using Trinidad to Run Multiple Apps</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:jpkutner@gmail.com" rel="email">Joe Kutner</a>
+      <i>on</i> <time pubdate datetime="2012-04-06">April 06, 2012</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p><em>This is part of a series of blog posts leading up to <a href="http://jrubyconf.com">JRubyConf 2012</a>. Joe Kutner is author of <a href="http://pragprog.com/book/jkdepj/deploying-with-jruby" title="Deploy with JRuby">Deploying with JRuby</a> and an expert on JRuby deployment options. Joe will be attending and speaking at JRubyConf…<a href="http://www.eventbrite.com/event/2571529514">register for JRubyConf 2012</a> today!</em></p>
+
+<p>One of the advantages of running Ruby on the JVM is that we can deploy multiple applications to the same webserver.  Using one JRuby webserver means that there is only one process to manage, monitor, start and stop. Your sysadmins will thank you.</p>
+
+<p>Having mutliple applications on one virtual machine also means we can configure them to share resources, thus reducing the overhead required for a production server.  In this post, we’ll walk through an example of deploying two applications to one Trinidad server.</p>
+
+<p>Trinidad is a light-weight JRuby web server that runs Rails and Rack applications in an embedded Apache Tomcat container.  Let’s install it by running this command:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ gem install trinidad -v 1.3.4
+</code></pre></div></div>
+
+<p>Next, let’s create a Trinidad home directory.  The examples in this post will use <code class="language-plaintext highlighter-rouge">/opt/trinidad</code>, but you can use whatever you’d like.</p>
+
+<p>Under the <code class="language-plaintext highlighter-rouge">/opt/trinidad</code> directory, we’ll create two more directories called <code class="language-plaintext highlighter-rouge">thing1</code> and <code class="language-plaintext highlighter-rouge">thing2</code>, which will contain the applications we’re going to run on our single Trinidad server.  In the <code class="language-plaintext highlighter-rouge">thing1</code> directory, create a <code class="language-plaintext highlighter-rouge">config.ru</code> file and put this code in it:</p>
+
+<script src="https://gist.github.com/2254164.js&#63;file=thing1_config.ru">
+<!--
+require 'rubygems'
+require 'sinatra'
+
+get '/' do
+  "This is thing one!"
+end
+
+run Sinatra::Application
+-->
+</script>
+
+<p>In the <code class="language-plaintext highlighter-rouge">thing2</code> directory, create another <code class="language-plaintext highlighter-rouge">config.ru</code> file and put this code in it:</p>
+
+<script src="https://gist.github.com/2254164.js&#63;file=thing2_config.ru">
+<!--
+require 'rubygems'
+require 'sinatra'
+
+get '/' do
+  "This is thing two!"
+end
+
+run Sinatra::Application
+-->
+</script>
+
+<p>Next, we’ll create a <code class="language-plaintext highlighter-rouge">/opt/trinidad/trinidad.yml</code> file, which will be used to configure our Trinidad server.</p>
+
+<script src="https://gist.github.com/2254164.js?file=trinidad.yml">
+<!--
+web_apps:
+  default:                                  # use the "/" context
+    web_app_dir: '/opt/trinidad/thing1'
+  thing2:                                   # use the "/thing2" context
+    web_app_dir: '/opt/trinidad/thing2'
+-->
+</script>
+
+<p>Our Trinidad home directory should look like this:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/opt/trinidad/
+|-- trinidad.yml/
+|-- thing1/
+    `-- config.ru/
+`-- thing2/
+    `-- config.ru/
+</code></pre></div></div>
+
+<p>Before we start the server, let’s make sure Sinatra is installed by running this command:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ gem install sinatra
+</code></pre></div></div>
+
+<p>Now we can run our Trinidad server by executing this command:</p>
+
+<script src="https://gist.github.com/2254164.js?file=run.sh">
+<!--
+trinidad &#8208;&#8208;config /opt/trinidad/trinidad.yml
+-->
+</script>
+
+<p>As the server starts up, we’ll see that its instatiated two runtimes – one for each of our applications.  We can see each of them by browsing to <code class="language-plaintext highlighter-rouge">http://localhost:3000</code> and <code class="language-plaintext highlighter-rouge">http://localhost:3000/thing2</code>.</p>
+
+<p>The two applications are completely isolated.  That means if you monkey-patch the <code class="language-plaintext highlighter-rouge">String</code> class in one application, it won’t affect the other application.  If you set a global variable to a constant value in one application, you can set it to a different value in the other application.</p>
+
+<p>Now let’s move on and really take advantage of what we’ve created!</p>
+
+<p>Because these applications are running in the same JVM, they can share a Database Connection Pool.  To do this, we’ll need to use the <code class="language-plaintext highlighter-rouge">trinidad_dbpool_extension</code>.  Trinidad provides an extension mechanism that allows us to plug-in many kinds of features.They are particularly useful when we need to hook into the embedded Tomcat container, as our database connection pool will.</p>
+
+<p>To use the <code class="language-plaintext highlighter-rouge">trinidad_dbpool_extension</code>, we’ll need to add an <code class="language-plaintext highlighter-rouge">extensions:</code> entry to our <code class="language-plaintext highlighter-rouge">trinidad.yml</code> file.  The new entry will contain the configuration for the Database Connection Pool.  The entire file should look like this now:</p>
+
+<script src="https://gist.github.com/2254164.js?file=trinidad2.yml">
+<!--
+web_apps:
+  default:
+    web_app_dir: '/opt/trinidad/thing1'
+  thing2:
+    web_app_dir: '/opt/trinidad/thing2'
+extensions:
+  postgresql_dbpool:                                   
+    jndi: 'jdbc/trinidad'                           
+    username: 'postgres'                              
+    password: 'Passw0rd'                              
+    url: 'jdbc:postgresql://localhost:5432/trinidad' 
+-->
+</script>
+
+<p>The extension creates the database connection pool inside the Tomcat container and gives it a JNDI name.  JNDI is a registry service for resources inside of a JVM.</p>
+
+<p>You’ll have to use a real database for this to work, but you don’t have to use PostgreSQL.  The extension also supports MySQL, MSSQL, Oracle, and a generic adapter that covers most other JDBC implementations.</p>
+
+<p>Next, let’s use the pool in our applications.  Change the <code class="language-plaintext highlighter-rouge">thing1/config.ru</code> file to look like this:</p>
+
+<script src="https://gist.github.com/2254164.js?file=config.ru">
+<!--
+require 'rubygems'
+require 'sinatra'
+require 'active_record'
+
+get '/' do
+  ActiveRecord::Base.establish_connection(
+    :adapter => "jdbcpostgresql",
+    :jndi => "java:/comp/env/jdbc/trinidad"
+  )
+
+  r = ActiveRecord::Base.connection.execute(
+    "select count(*) from pg_catalog.pg_tablespace")
+
+  "Thing one found: #{r.inspect}"
+end
+
+run Sinatra::Application
+-->
+</script>
+
+<p>First, we’ve loaded the <code class="language-plaintext highlighter-rouge">active_record</code> Gem, which we’ll use to interface with our database.  Next, we’ve added two statements to our <code class="language-plaintext highlighter-rouge">get</code> service.  The first statement establishes a connection from the pool by referencing the JNDI resource we definined earlier.  The second line executes a simple query against PostgreSQL’s internal tables.  Finally, we’re returning the result of the query as the service response.</p>
+
+<p>Next, modify <code class="language-plaintext highlighter-rouge">thing2/config.ru</code> so it looks similar to the code above, but with “Thing two” in the response.</p>
+
+<p>Before we can launch these applications, we’ll need to install a few more gems by running these commands:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ gem install activerecord 
+$ gem install trinidad_postgresql_dbpool_extension 
+$ gem install activerecord-jdbcpostgresql-adapter
+</code></pre></div></div>
+
+<p>Now kill the Trinidad server if it’s still running by pressing <code class="language-plaintext highlighter-rouge">Ctrl+C</code> from it’s console, and start it up again by running this command once more:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ trinidad --config /opt/trinidad/trinidad.yml
+</code></pre></div></div>
+
+<p>When we point our browser to <code class="language-plaintext highlighter-rouge">http://localhost:3000</code> and <code class="language-plaintext highlighter-rouge">http://localhost:3000/thing2</code> we’ll see something like this (depending on the number of tables in your database):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Thing one found: [{"count" =&gt; 0}]
+</code></pre></div></div>
+
+<p>Both applications are connecting to the database!</p>
+
+<p>Sharing a database connection pool simplifies our production architecture by eliminating the need for additional layers like pg_pool. Trinidad makes it very easy to configure, but this same kind of setup can be achieved with any JRuby web server – including TorqueBox and Warbler+Tomcat/Jetty/etc.</p>
+
+<p>If you found this useful, I encourage you to pick up a copy of my book, <a href="http://pragprog.com/book/jkdepj/deploying-with-jruby" title="Deploy with JRuby">Deploying with JRuby</a>, which has tons of other JRuby examples like this one.</p>
+
+<p>The complete source for this example can be found on Github at <a href="https://github.com/jkutner/trinidad-dbpool-example" title="trinidad-dbpool-example">trinidad-dbpool-example</a>.</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2012/04/two-apps-one-trinidad';
+      var disqus_title      = 'Using Trinidad to Run Multiple Apps';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : Gracious Eloise Interview
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2011/11/gracious-eloise-interview" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>Gracious Eloise Interview</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:cwgem@jruby.org" rel="email">Chris White</a>
+      <i>on</i> <time pubdate datetime="2011-11-20">November 20, 2011</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>It’s always interesting to see how JRuby is being utilized by our users. Sometimes it’s ways we expect, other times the results are unexpected. Rebecca Miller-Webster (<a href="https://twitter.com/#!/rmillerwebster">@rmillerwebster</a>), Head of Technology at <a href="http://www.graciouseloise.com/">Gracious Eloise</a> (<a href="https://twitter.com/#!/graciouseloise">@graciouseloise</a>), posted a blog entry titled <a href="http://www.rebeccamiller-webster.com/2011/11/the-power-of-jruby/">The Power of JRuby</a> showing a rather interesting use of JRuby. Wanting to know more about how JRuby fit into Gracious Eloise’s architecture, I conducted an interview so that users could see what kind of exciting things people are doing with JRuby!</p>
+
+<h2 id="to-start-off-what-is-gracious-eloise-and-what-problem-does-it-look-to-solve">To start off, what is Gracious Eloise and what problem does it look to solve?</h2>
+
+<p>Gracious Eloise is making handwriting digital and handwritten notes as easy as email. We are creating a platform that allows business and individuals to write handwritten notes from their computer – the notes are either printed, stamped, and mailed or emailed (coming soon!)</p>
+
+<p>Our founder, Eloise Bune, came up with the idea when she had to write 300 thank you notes after her wedding.  In the process of building the algorithm and talking with investors, she realized that companies in many sectors, such as retail, non-profits, car dealerships, elected officials, and PR, currently have handwritten note programs that they are unable to scale or ensure quality and corporate standards.  That’s where Gracious Eloise comes in.</p>
+
+<h2 id="when-did-you-first-find-out-about-jruby">When did you first find out about JRuby?</h2>
+
+<p>I had heard rumblings of JRuby for a while – a friend who is a Ruby and Java/Hadoop guy kept suggesting it to me for Gracious Eloise.  Our handwriting replication algorithm is written in Mathematica, and I was struggling to build a Java web service that would allow our web app to connect to it.</p>
+
+<h2 id="at-what-point-did-you-decide-to-use-jruby-and-was-it-a-tough-decision">At what point did you decide to use JRuby, and was it a tough decision?</h2>
+
+<p>After struggling to get a Spring MVC web service to just return JSON without a view, I gave myself 2 hours to try to do it in JRuby.  It was done and working in 30 minutes.  Not a tough decision at all!</p>
+
+<h2 id="how-does-jruby-fit-in-to-your-current-architecture">How does JRuby fit in to your current architecture?</h2>
+
+<p>JRuby is the glue that connects everything together.  It connects our handwriting replication code (with a light Java wrapper around it) to our MRI Ruby on Rails web app via Resque jobs.  Ultimately, we will get rid of the Java code altogether and move that into JRuby as well as rewriting some or all of the handwriting replication algorithm using JRuby.  Because we can use Java’s image and graphics libraries, JRuby is a huge win for us in terms of the algorithm itself.</p>
+
+<h2 id="what-is-the-architecture-like-that-keeps-everything-running">What is the architecture like that keeps everything running?</h2>
+
+<p>We have Mathematica, Java, and JRuby running together in EC2 to do algorithm related processing. Our web app is Rails 3 with Backbone.js running on Heroku.  Pusher allows us to send messages about the status of processing to the web app.  Handwriting data is stored in MySQL (RDS), while customer and other web app related data is in Postgres.</p>
+
+<h2 id="what-do-you-consider-to-be-jrubys-strengths-and-weaknesses">What do you consider to be JRuby’s strengths and weaknesses?</h2>
+
+<p>As I said in a recent blog post, I think the biggest strength of JRuby is that it opens you up to using any Java library out there.  Used in conjunction with Resque and MRI or REE Ruby, you can also use any C library out there.  Basically, JRuby hands you most of the world of code on a platter.</p>
+
+<p>As for weaknesses, I think it’s biggest weaknesses are Java’s biggest weaknesses.   And I’m mostly talking about Java’s insane love of memory. :)  Obviously, using the JVM and having access to Java libraries have huge advantages, so as with all technology choices, it’s a trade off.  But, again, you could always have code that is a memory-suck in Java moved to C and connect with other JRuby code in Resque.  JRuby allows you to choose the best tool for each job at hand and that, to me, is huge.</p>
+
+<h2 id="you-mentioned-that-you-were-looking-for-a-jruby-developer-what-kind-of-work-would-be-involved">You mentioned that you were looking for a JRuby developer. What kind of work would be involved?</h2>
+
+<p>The main project our <a href="http://careers.stackoverflow.com/jobs/14749/ruby-jruby-developer-gracious-eloise">JRuby Developer</a> would tackle would be creating an app for processing handwriting samples, likely a combination desktop and web app.  Currently, the process of getting someone’s handwriting is a huge pain and requires a review process that is terrible to do in Mathematica.  We have some code for this here and there, but it would really be building something from scratch.  Beyond that, the job would involve keeping the glue between the algorithm and the web app working and improving the speed and efficiency.  Also, helping our algorithm engineers move code out of Mathematica.</p>
+
+<p>We are super small (i.e. I’m the only full-time developer), so if someone wanted to work on the web app side or the algorithm side as well that is on the table.  There’s also work to do with printer and email provider integration as well as CRM integration.</p>
+
+<h2 id="thank-you-for-taking-the-time-for-this-interview-do-you-have-any-closing-words-for-our-readers">Thank you for taking the time for this interview! Do you have any closing words for our readers?</h2>
+
+<p>JRuby rocks my world!</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2011/11/gracious-eloise-interview';
+      var disqus_title      = 'Gracious Eloise Interview';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

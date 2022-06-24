@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : activerecord-jdbc-adapter 1.2.0 Released!
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2011/09/ar-jdbc-1-2-0-released" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>activerecord-jdbc-adapter 1.2.0 Released!</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:nicksieger@gmail.com" rel="email">Nick Sieger</a>
+      <i>on</i> <time pubdate datetime="2011-09-13">September 13, 2011</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>With the advent of our new <a href="http://blog.jruby.org">jruby.org blog</a>
+comes a new software release. Our JDBC-based adapter for ActiveRecord
+is now compatible with the <a href="http://weblog.rubyonrails.org/2011/8/31/rails-3-1-0-has-been-released">Rails 3.1 release</a>. AR-JDBC is
+also tested to be compatible with 2.3.x and 3.0.x.</p>
+
+<p>Install it as usual with <code class="language-plaintext highlighter-rouge">gem install activerecord-jdbc-adapter</code>.</p>
+
+<p>A new and notable feature of Rails 3.1 is that support for AR-JDBC is
+built-in. So when you generate a new Rails application with JRuby,
+your Gemfile will be set up automatically for use with JRuby and
+AR-JDBC. The <code class="language-plaintext highlighter-rouge">rails new</code> command:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rails new photoblog -d mysql
+</code></pre></div></div>
+
+<p>creates the following section of the <code class="language-plaintext highlighter-rouge">Gemfile</code>:</p>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">gem</span> <span class="s1">'activerecord-jdbcmysql-adapter'</span></code></pre></figure>
+
+<p>So, no more <code class="language-plaintext highlighter-rouge">-m http://jruby.org</code>, no more <code class="language-plaintext highlighter-rouge">rails generate jdbc</code>,
+nothing. JRuby on Rails works out of the box.</p>
+
+<p>I also want to take a moment to welcome <a href="https://github.com/ajuckel">Anthony Juckel</a>,
+<a href="https://github.com/arunagw">Arun Agrawal</a>, <a href="https://github.com/guilleiguaran">Guillermo Iguaran</a>, <a href="https://github.com/hexgnu">Matt
+Kirk</a>, <a href="https://github.com/lukefx">Luca Simone</a>, and <a href="https://github.com/samuelkadolph">Samuel
+Kadolph</a> for stepping up to the plate to help maintain
+AR-JDBC going forward. Thanks everyone!</p>
+
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2011/09/ar-jdbc-1-2-0-released';
+      var disqus_title      = 'activerecord-jdbc-adapter 1.2.0 Released!';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

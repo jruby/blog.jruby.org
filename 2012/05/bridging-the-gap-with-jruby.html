@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : Bridging The Gap With JRuby
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2012/05/bridging-the-gap-with-jruby" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>Bridging The Gap With JRuby</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:bploetz@gmail.com" rel="email">Brian Ploetz</a>
+      <i>on</i> <time pubdate datetime="2012-05-18">May 18, 2012</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>The only things certain in life are death, taxes, and your technology stack will change over time.
+While architectural changes are complicated in their own right, the challenges are even greater when
+your primary data store is changing to a fundamentally different technology.</p>
+
+<p>A recent project involved migrating applications from a legacy architecture based on Java/Hibernate/Oracle
+to a new architecture based on Ruby/MongoMapper/MongoDB. In order to facilitate the transition from Oracle
+to MongoDB, we needed a temporary <a href="http://en.wikipedia.org/wiki/Extract,_transform,_load">ETL</a> solution to
+migrate data from Oracle to MongoDB. A new domain model and document structure had been designed and developed
+for MongoDB with Ruby/MongoMapper, and there were existing Java/Hibernate entities mapped to Oracle.</p>
+
+<p>Rather than having to re-map one database or the other in the other persistence technology to facilitate the
+ETL process (not <a href="http://en.wikipedia.org/wiki/Don%27t_repeat_yourself">DRY</a>), JRuby allowed the two persistence
+technologies to interoperate. By utilizing JRuby’s powerful embedding capabilities, we were able to read data
+out of Oracle via Hibernate and write data to MongoDB via MongoMapper.</p>
+
+<h2 id="example-domain-model">Example Domain Model</h2>
+
+<p>To demonstrate the RDMBS to MongoDB ETL process, consider the ubiquitous blog domain model.</p>
+
+<p><img src="/images/jruby-etl-model.png" alt="blog domain model" /></p>
+
+<p>A Blog contains many Posts, and a Post contains many Comments. Users create Posts and Comments. The relational model for
+this domain model would look something like this:</p>
+
+<p><img src="/images/jruby-etl-erdiagram.png" alt="blog ER diagram" /></p>
+
+<p>The schema is highly normalized. Entities live in their own tables, and are tied together via foreign keys.</p>
+
+<p>With document databases like MongoDB, you typically want to denormalize data according to your access patterns,
+as you can’t rely on joins. In our example blog domain model, storing posts and comments in separate collections
+would result in unnecessary querying. Thus, these will become embedded collections within their respective parent
+documents, and our resulting Blog MongoDB document would look something like this:</p>
+
+<script src="https://gist.github.com/2312479.js"> </script>
+
+<p><code class="language-plaintext highlighter-rouge">posts</code> is an embedded collection within a <code class="language-plaintext highlighter-rouge">blog</code> document, and <code class="language-plaintext highlighter-rouge">comments</code> is an embedded collection within a
+<code class="language-plaintext highlighter-rouge">post</code> document. We denormalize the username of the author of posts/comments, and also store the user’s ObjectId,
+which will allow us to generate links like</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Posted by &lt;a href="http://myblog.com/users/4f7d0176f1bb3e1223000005"&gt;bill&lt;/a&gt;
+</code></pre></div></div>
+
+<h2 id="translators">Translators</h2>
+
+<p><code class="language-plaintext highlighter-rouge">Translator</code> classes are Ruby classes which translate Java/Hibernate objects to their Ruby/MongoMapper counterparts,
+and contain the logic for dealing with denormalization.</p>
+
+<p>Let’s look at an example. The Hibernate domain model class for Blog would look something like this:</p>
+
+<script src="https://gist.github.com/2313375.js"> </script>
+
+<p>Its MongoMapper counterpart would look something like this:</p>
+
+<script src="https://gist.github.com/2313387.js"> </script>
+
+<p>The <code class="language-plaintext highlighter-rouge">BlogTranslator</code> class contains the logic to translate Blog entities to Blog documents:</p>
+
+<script src="https://gist.github.com/2625209.js"> </script>
+
+<p>Some things to note:</p>
+
+<ul>
+  <li>Each <code class="language-plaintext highlighter-rouge">Translator</code> is idempotent and knows whether to create or update the document in MongoDB. We store the
+RDBMS identifer of the source entity in the MongoDB document to facilitate this logic.</li>
+  <li><code class="language-plaintext highlighter-rouge">Translators</code> can call other <code class="language-plaintext highlighter-rouge">Translators</code> as they traverse the Hibernate model’s object graph. Above we see
+that the <code class="language-plaintext highlighter-rouge">BlogTranslator</code> calls the <code class="language-plaintext highlighter-rouge">PostTranslator</code> to translate each associated post.</li>
+  <li>Having each <code class="language-plaintext highlighter-rouge">Translator</code> be responsible for a single entity (or logical entity) allows you to plug the <code class="language-plaintext highlighter-rouge">Translator</code> into
+your applications to perform real-time incremental ETL as entities are created/updated, as well as chain
+<code class="language-plaintext highlighter-rouge">Translators</code> together to create large scale batch sync ETL processes.</li>
+</ul>
+
+<h2 id="embedding-translators-in-java">Embedding Translators in Java</h2>
+
+<p>With the use of JRuby’s <a href="http://jruby.org/apidocs/org/jruby/embed/ScriptingContainer.html"><code class="language-plaintext highlighter-rouge">ScriptingContainer</code></a>
+class, we can embed our <code class="language-plaintext highlighter-rouge">Translator</code> objects into our Java applications to facilitate the ETL process. Suppose we
+have a command line app which ETLs all Blog entities. It would embed the <code class="language-plaintext highlighter-rouge">BlogTranslator</code> and pass each Blog
+Hibernate model object to the <code class="language-plaintext highlighter-rouge">BlogTranslator</code> object’s <code class="language-plaintext highlighter-rouge">translate</code> method.</p>
+
+<script src="https://gist.github.com/2625336.js"> </script>
+
+<h2 id="example-etl-application">Example ETL application</h2>
+
+<p>A complete RDBMS -&gt; MongoDB ETL application for our blog domain model can be found here:</p>
+
+<p><a href="https://github.com/bploetz/jruby-etl">https://github.com/bploetz/jruby-etl</a></p>
+
+<p>The repository contains two main directories: <code class="language-plaintext highlighter-rouge">java</code> and <code class="language-plaintext highlighter-rouge">ruby</code>.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">java</code> directory contains the Hibernate domain model mapped to the relational database, as well as the
+example <code class="language-plaintext highlighter-rouge">ETLManager</code> class which demonstrates JRuby’s embedding capability.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">ruby</code> directory is a RubyGem containing the MongoMapper domain model mapped to MongoDB, as well as
+the <code class="language-plaintext highlighter-rouge">Translator</code> classes.</p>
+
+<p>To run this project the following are required:</p>
+<ul>
+  <li>JDK 1.5 or higher</li>
+  <li>Maven 2.2</li>
+  <li>JRuby (examples below assume JRuby is installed via <a href="https://rvm.beginrescueend.com/">RVM</a>)</li>
+  <li>The <a href="http://gembundler.com/">Bundler</a> gem installed</li>
+  <li><a href="http://www.mongodb.org/display/DOCS/Quickstart">MongoDB</a> running on the default port at localhost</li>
+</ul>
+
+<p>For simplicity, this example application uses HSQLDB for the RDBMS, so there is no need to have a separate
+RDBMS installed/running. You can obviously change the Spring/Hibernate configuration to use your RDBMS of
+choice if you so desire.</p>
+
+<p>Clone the <a href="https://github.com/bploetz/jruby-etl">jruby-etl</a> git repository and run the following to compile the Java source files and create the distribution:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rvm use jruby
+cd java-etl/java
+mvn clean package
+</code></pre></div></div>
+
+<p>cd to the distribution directory and load the example seed data into the relational database.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cd target/jruby-etl-1.0.0-SNAPSHOT-bin/bin
+./load-seed-data.sh
+</code></pre></div></div>
+
+<p>Finally, run the ETL app to translate the seed data from the relational database to MongoDB.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./etl.sh
+</code></pre></div></div>
+
+<p>The project is configured to log all SQL statements and all MongoDB queries so that you can see the translation happening.</p>
+
+<p>This ETL application is just one example of how JRuby can help facilitate bridging Java and Ruby based technologies. What
+interesting solutions are you building with JRuby?</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2012/05/bridging-the-gap-with-jruby';
+      var disqus_title      = 'Bridging The Gap With JRuby';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

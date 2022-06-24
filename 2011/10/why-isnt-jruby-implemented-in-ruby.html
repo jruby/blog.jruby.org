@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : Why Isn't JRuby Implemented in Ruby?
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2011/10/why-isnt-jruby-implemented-in-ruby" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>Why Isn't JRuby Implemented in Ruby?</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:headius@headius.com" rel="email">Charles Oliver Nutter</a>
+      <i>on</i> <time pubdate datetime="2011-10-24">October 24, 2011</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>As Ruby implementations mature and Ruby code runs faster and faster,
+the question starts to come up again and again: why not implement
+more in Ruby? There’s many good reasons to do it: easier for Rubyists
+to maintain and contribute; no native library dependencies; better
+visibility for debuggers and profilers; consistency all the way into
+the core… the list goes on. As you’d expect, we often get this
+question about JRuby itself, given that JRuby now runs Ruby code very
+fast and most Rubyists would rather not read or write Java code. So
+why isn’t JRuby implemented in Ruby?</p>
+
+<p>The answer: it’s complicated.</p>
+
+<h2 id="ruby-is-not-the-best-language-for-everything">Ruby is Not the Best Language for Everything</h2>
+
+<p>The simplest answer is perhaps the most obvious: Ruby isn’t always
+the best tool. There’s many cases where Ruby’s dispatch overhead,
+coercion protocols, arbitrary-precision integers, or mutable types
+get in the way of expressivity or performance. What makes Ruby
+“beautiful” sometimes obscures intent from either the programmer or
+the underlying platform.</p>
+
+<p>Performance is obviously a key issue. Sometimes, you really need raw
+native maths or byte arrays and Fixnum, Float, and Array introduce too
+much overhead. Using Java gives us a “known quantity” when it comes
+to performance.</p>
+
+<p>Now of course I’m not saying Ruby won’t continue to get faster and
+faster. JRuby on Java 7 has started to approach Java performance for
+many algorithms, and as JRuby and the JVM improve, the gap will
+continue to narrow. But optimizing a dynamic language is challenging
+even on the best VMs, so it’s nice to have that “known quantity”
+when performance is critical.</p>
+
+<h2 id="jrubys-a-ruby-implementation-and-a-jvm-language">JRuby’s a Ruby Implementation <em>and</em> a JVM Language</h2>
+
+<p>Then there’s also the matter of interfacing with statically-typed JVM
+libraries. JRuby makes heavy use of JVM libraries for much of its
+internals. That has meant we don’t have to implement our own
+collections, IO subsystem, JVM bytecode generator, YAML 1.1, and
+much more. Of course some of these could be called via our Java
+integration layer, but there’s always a bit more overhead down that
+road than by having Java calling Java.</p>
+
+<p>Almost as important is the fact that nearly all of JRuby’s core
+classes can be called as normal Java classes from any piece of JVM
+code. Java integration is a two-way street, and having Ruby-only
+implementations would make one direction more challenging to
+support.</p>
+
+<h2 id="dont-throw-out-the-baby">Don’t Throw Out the Baby</h2>
+
+<p>Moving to Ruby for new code is easy enough, but moving existing
+code to Ruby would mean throwing out known-working, battle-tested,
+optimized Java implementations for something completely new. Any
+good developer knows that a “big rewrite” seldom ends well, so
+we’d be doing a great disservice to the thousands of JRuby users
+out there by making a wholesale move to Ruby. There’s no measure
+of benefit (from rewriting in Ruby) that would outweigh losing
+years of maturity in our codebase.</p>
+
+<h2 id="inertia">Inertia</h2>
+
+<p>Inertia may be the biggest motivator here. The JRuby committers
+are very familiar with Java and with the current implementation.
+They also may know Ruby very well, but change is always
+accompanied by some measure of confusion.</p>
+
+<p>Most of the JRuby core team manages a subset of JRuby; Tom Enebo
+works on parser, interpreter, and the new IR compiler. Nick Sieger
+works on libraries like activerecord-jdbc and jruby-rack. Wayne
+Meissner works on our native library integration layers like FFI.
+I work on compilation, optimization, and Java integration. Do we
+force everyone to start writing in Ruby when they may prefer to use
+Java?</p>
+
+<h2 id="developer-pool">Developer Pool</h2>
+
+<p>As much as Ruby has grown in recent years, there are still far
+more Java developers in the world. They may not <em>love</em> the
+language, but they represent a tremendous potential pool of
+contributors to JRuby. Yes, it’s true that a Java developer is
+probably less likely to contribute to JRuby than a Rubyist…
+but there’s still a hell of a lot of them out there.</p>
+
+<p>There’s also a very large portion of JRuby users (perhaps even
+a majority) that are either primarily or originally Java folks.
+Having a mostly-Java codebase means they can more easily
+investigate bugs, integrate JRuby into their JVM-based
+applications, and generally reason about how JRuby <em>actually</em>
+works. That’s very powerful.</p>
+
+<h2 id="but-we-still-want-to-do-it">But We Still Want to Do It!</h2>
+
+<p>Even though I list a bunch of reasons for having a mostly
+Java codebase, we do recognize that Ruby is an excellent tool
+for both writing apps and for implementing Ruby’s core. And
+we have always intended to make it possible for JRuby to use
+more Ruby code as part of the core implementation, even if
+we never do a wholesale rewrite.</p>
+
+<p>To that end, I’ve started restructing the (admittedly small)
+Ruby-based “kernel” of JRuby into a structure that’s more
+approachable to Rubyists that want to contribute to JRuby. The
+restructured Ruby kernel is under <a href="https://github.com/jruby/jruby/tree/master/src/jruby">src/jruby</a>,
+and while there’s not much there right now we’re willing to
+accept new code in either Ruby <em>or</em> Java. If it becomes a
+performance or integration problem, we may rewrite that code
+in Java…but having a working implementation in Ruby is far
+better than having nothing at all.</p>
+
+<h2 id="whither-rubinius">Whither Rubinius?</h2>
+
+<p>You might be asking yourself “why not just use <a href="https://github.com/rubinius/rubinius">Rubinius</a>’s
+kernel?” We’ve always hoped (maybe intended) to use as much
+as possible of Rubinius’s mostly-Ruby kernel in JRuby, if
+at some point that seemed feasible. With recent performance
+improvements in JRuby, that day may be approaching. We would
+need to patch away anything that’s Rubinius-specific, but I
+have toyed with how to start using Rubinius’s kernel in JRuby
+several times in the past few years. If we can borrow their
+code for missing or poorly-implemented parts of JRuby, it
+would be stupid for us not to do so.</p>
+
+<p>It’s also worth pointing out that Rubinius has very few of the
+challenges JRuby does when it comes to integrating with an
+existing platform. Rubinius was designed as a Ruby VM alone,
+so there’s no equivalent to Java integration. When Rubinius
+wants to utilize native libraries, they do what we do: write
+wrapper logic in C/++ (equivalent to JRuby’s Java code) or bind
+those libraries with FFI (similar to but more basic than our Java
+integration). And Rubinius exposes no native, statically-typed
+API to its implementation classes.</p>
+
+<h2 id="how-can-you-help">How Can You Help?</h2>
+
+<p>Right now we’re looking to use Ruby mostly for missing features.
+Since we’re still in the midst of filling out Ruby 1.9.2 and
+1.9.3 features, that’s a good place to start.</p>
+
+<p>We use and contribute to RubySpec, just like Rubinius does,
+so you can easily find missing or broken features by looking under
+<a href="https://github.com/jruby/jruby/tree/master/spec/tags">spec/tags</a>
+in our codebase.</p>
+
+<p>(RubySpec supports the concept of “tagging”, where known-failing
+specs can be “tagged” until they pass. This allows implementations
+to maintain a “watermark” of passing specs over time, and allows
+contributors to easily see and fill in implementation gaps.)</p>
+
+<p>You’ll want to fetch the revision of RubySpec we currently test
+against by running <em>rake spec:fetch_stable_specs</em> (or <em>ant
+fetch-stable-specs</em>; git must be installed in both cases), but
+after that you can run specs using <a href="https://github.com/rubyspec/mspec">spec/mspec/bin/mspec</a>
+in the usual way.</p>
+
+<p>And of course if there are Ruby 1.8 or 1.9 features that are
+weakly specified by available tests, we strongly encourage
+you to contribute specs directly to the <a href="http://rubyspec.org/">RubySpec</a>
+project, so that all implementations can benefit.</p>
+
+<p>We hope that making it easier to implement JRuby using Ruby
+code will make it more approachable to Rubyists, and we’re
+looking forward to helping you craft your first pull request! Stop
+by #jruby on Freenode IRC this week and we’ll help you out!</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2011/10/why-isnt-jruby-implemented-in-ruby';
+      var disqus_title      = 'Why Isn't JRuby Implemented in Ruby?';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

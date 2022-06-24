@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : Monitoring Memory Allocation Per Thread
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2011/12/monitoring-memory_allocation-per-thread" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>Monitoring Memory Allocation Per Thread</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:headius@headius.com" rel="email">Charles Oliver Nutter</a>
+      <i>on</i> <time pubdate datetime="2011-12-29">December 29, 2011</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <p>Perhaps the largest benefit of JRuby being on the JVM is the excellent tool ecosystem.
+There’s an enormous collections of debuggers, profilers, and general monitoring tools
+available for JVM that work great with JRuby. Even better, a surprising number of these
+tools are built into each JVM.</p>
+
+<p>One of these tool sets is the <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/management/package-summary.html"><code class="language-plaintext highlighter-rouge">java.lang.management</code></a>
+package. Here, you’ll find a number of <a href="http://www.oracle.com/technetwork/java/javase/tech/javamanagement-140525.html">JMX</a> beans for monitoring the status and health
+of the JVM. Some of the information presented by these beans is standard, like <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/management/ManagementFactory.html#getMemoryPoolMXBeans()">lists
+of memory pools</a>
+(heaps) or the <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/management/OperatingSystemMXBean.html#getAvailableProcessors()">number of available processors</a>
+on the current system. But each JVM may also expose additional information.</p>
+
+<p>On OpenJDK, starting with 6u25, the built-in <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/management/ThreadMXBean.html"><code class="language-plaintext highlighter-rouge">ThreadMXBean</code></a>
+exposes an additional operation: <code class="language-plaintext highlighter-rouge">getThreadAllocatedBytes</code>. How can JRubyists take
+advantage of it?</p>
+
+<h2 id="monitoring-thread-allocation">Monitoring Thread Allocation</h2>
+
+<p>Of course, via JRuby’s Java integration, we can easily call any of the management beans’
+operations, and <code class="language-plaintext highlighter-rouge">getThreadAllocatedBytes</code> is no different.</p>
+
+<p>We start by loading the ‘java’ and ‘jruby’ libraries, to access Java classes and some
+normally-hidden JRuby features.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>require 'java'
+require 'jruby'
+</code></pre></div></div>
+
+<p>We get access to the <code class="language-plaintext highlighter-rouge">ThreadMXBean</code> via the <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/management/ManagementFactory.html"><code class="language-plaintext highlighter-rouge">ManagementFactory</code></a> 
+class.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>thread_bean = java.lang.management.ManagementFactory.thread_mx_bean
+</code></pre></div></div>
+
+<p>Now, we will create a thread that endlessly creates a new string, and get references
+to that thread’s and the main thread’s native <code class="language-plaintext highlighter-rouge">java.lang.Thread</code> object.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>t1 = Thread.new do
+  a = nil
+  loop do
+    a = 'foo'
+  end
+end
+t1_thread = JRuby.reference(t1).native_thread
+
+main = Thread.current
+main_thread = JRuby.reference(main).native_thread
+</code></pre></div></div>
+
+<p>Now that we’ve got a thread busily allocating data, we set up a loop that prints out
+both threads’ allocated bytes once every second. The <code class="language-plaintext highlighter-rouge">getThreadAllocatedBytes</code>
+method takes an array of thread IDs and returns an array of byte counts, both as
+long[].</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>loop do
+  sleep 1
+  t1_alloc = thread_bean.get_thread_allocated_bytes([t1_thread.id].to_java(:long))[0]
+  main_alloc = thread_bean.get_thread_allocated_bytes([main_thread.id].to_java(:long))[0]
+  puts "main allocated: #{main_alloc}"
+  puts "t1 allocated: #{t1_alloc}"
+end
+</code></pre></div></div>
+
+<p>(Note the bit of Java integration array-munging; par for the course going from Ruby’s
+heterogeneous Array to Java’s homogeneous arrays.)</p>
+
+<p>And that’s it! Here’s the output on my system for five iterations of the loop:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>main allocated: 11343752
+t1 allocated: 378806608
+main allocated: 11359632
+t1 allocated: 767226768
+main allocated: 11361624
+t1 allocated: 1156928944
+main allocated: 11363616
+t1 allocated: 1547160976
+main allocated: 11365608
+t1 allocated: 1930237360
+</code></pre></div></div>
+
+<p>I’ve gisted the full script here: <a href="https://gist.github.com/1533906">Monitoring Thread Allocation</a>.</p>
+
+<h2 id="your-turn">Your Turn</h2>
+
+<p>This is just one of many fun (and useful!) ways you can monitor the JVM using JRuby.
+Poke around in <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/management/ManagementFactory.html"><code class="language-plaintext highlighter-rouge">ManagementFactory</code></a>
+and see what else you can find!</p>
+
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2011/12/monitoring-memory_allocation-per-thread';
+      var disqus_title      = 'Monitoring Memory Allocation Per Thread';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>

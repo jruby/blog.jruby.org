@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>
+    
+      The JRuby Blog : Generating Java Classes at Runtime with JRuby 9.3.4
+    
+  </title>
+
+  <meta charset="utf-8" />
+  <meta name="author" content="Shane Becker" />
+
+  <link href="/feed" rel="alternate" title="No More Sharecropping" type="application/atom+xml" />
+  <link rel="home" href="/" />
+
+  <!--[if lt IE 9]> <script src="/javascripts/html5.js"></script> <![endif]-->
+  <link rel="stylesheet" href="/stylesheets/syntax.css" />
+<link rel="stylesheet" href="/stylesheets/asciidoc.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/stylesheets/application.css" />
+
+</head>
+
+<body>
+  <header role="banner">
+    <a href="/" rel="home">
+      <hgroup>
+        <h1>The JRuby Blog</h1>
+        <h2>The Ruby Programming Language on the JVM</h2>
+      </hgroup>
+    </a>
+  </header>
+
+  <article role="article" class="hentry">
+  <header>
+    <a href="/2022/06/jruby-class-extension-9.3" rel="bookmark">
+      <hgroup class="entry-title">
+        <h1>Generating Java Classes at Runtime with JRuby 9.3.4</h1>
+        
+          <h2></h2>
+        
+      </hgroup>
+    </a>
+
+    <h3 class="vcard">
+      Published <i>by</i> <a href="mailto:" rel="email">Patrick Plenfisch</a>
+      <i>on</i> <time pubdate datetime="2022-06-24">June 24, 2022</time>
+    </h3>
+  </header>
+
+  <section class="entry-content">
+    <div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#background">1. Background</a></li>
+<li><a href="#constructors">2. Constructors</a></li>
+<li><a href="#fields">3. Fields</a></li>
+<li><a href="#annotations">4. Annotations</a></li>
+<li><a href="#jrubyfx-2-0">5. JRubyFX 2.0</a></li>
+<li><a href="#gotchas-classloading-ruby-classes">6. Gotchas: Classloading Ruby Classes</a></li>
+<li><a href="#conclusion">7. Conclusion</a></li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="background">1. Background</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>There are many reasons people use the JRuby implementation of Ruby over MRI/CRuby: increased long-run performance, lock-free multi-threading, the ability to deliver code as a war file, and to integrate with Java libraries. I often find my use of JRuby via integrating with Java, and that&#8217;s the topic of this post.</p>
+</div>
+<div class="paragraph">
+<p>First, what types of basic Java integration does JRuby currently provide?</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Embedding JRuby in Java code (JSR-223)</p>
+</li>
+<li>
+<p>Memory/GC integration</p>
+</li>
+<li>
+<p>Marshaling values from Ruby to Java</p>
+</li>
+<li>
+<p>Ruby code calling into Java</p>
+</li>
+<li>
+<p>Marshaling values from Java to Ruby</p>
+</li>
+<li>
+<p>Implementing interfaces so Java can call Ruby</p>
+</li>
+<li>
+<p>Extending a Java class with a Ruby class (concrete extension)</p>
+</li>
+<li>
+<p>Lowering a Ruby class into a JVM class at runtime (reification, <code>become_java!</code>)</p>
+</li>
+<li>
+<p>The <code>jrubyc</code> class compiler that can generate (ahead of time) Java classes</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>This post will principally investigate #7 and #8, and some of their recent changes in the JRuby 9.3.4 series. I shall assume a basic knowledge of how the JVM works, and a familiarity with Ruby.</p>
+</div>
+<div class="paragraph">
+<p>First, why would one want to do either #7 or #8? Number 7, henceforth referred to as concrete extension, should hopefully be more obvious, as lots of frameworks and libraries require extending a class, and doing so from Ruby code is simply more convenient when using JRuby than having to bundle an extra jar. Number 8, henceforth referred to as reification, is needed whenever a full JVM class is required, either for multi-interface support, or as a token.</p>
+</div>
+<div class="paragraph">
+<p>As a quick example, lets look at using Logback, a common Java logging framework. Logback (slf4j, really) requires a class as a token to get a logger. The Ruby version uses using concrete extension and reification together.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+All examples in here use the <code>maven-require</code> gem to load maven dependencies interactively. Install it via <code>gem install maven-require</code> and then in each <code>irb</code> session or file, <code>require 'maven_require'</code> at the top. Note the differing gem name and require line.
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Classic Java Usage of Logback</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="java"><span></span><span style="color: #008000; font-weight: bold">import</span> <span style="color: #0000FF; font-weight: bold">org.slf4j.Logger</span>;
+<span style="color: #008000; font-weight: bold">import</span> <span style="color: #0000FF; font-weight: bold">org.slf4j.LoggerFactory</span>;
+
+<span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">JavaPiList</span> <span style="color: #008000; font-weight: bold">extends</span> java.<span style="color: #7D9029">util</span>.<span style="color: #7D9029">AbstractList</span><span style="color: #666666">&lt;</span>Integer<span style="color: #666666">&gt;</span> {
+
+    <span style="color: #008000; font-weight: bold">static</span> Logger logger <span style="color: #666666">=</span> LoggerFactory.<span style="color: #7D9029">getLogger</span>(JavaPiList.<span style="color: #7D9029">class</span>);
+    <span style="color: #B00040">int</span><span style="color: #666666">[]</span> pi <span style="color: #666666">=</span> {<span style="color: #666666">3</span>,<span style="color: #666666">1</span>,<span style="color: #666666">4</span>,<span style="color: #666666">1</span>,<span style="color: #666666">5</span>,<span style="color: #666666">9</span>};
+
+    <span style="color: #008000; font-weight: bold">public</span> Integer <span style="color: #0000FF">get</span>(<span style="color: #B00040">int</span> index) {
+        logger.<span style="color: #7D9029">info</span>(<span style="color: #BA2121">&quot;Getting index {}&quot;</span>, index);
+        <span style="color: #008000; font-weight: bold">return</span> pi<span style="color: #666666">[</span>index<span style="color: #666666">]</span>;
+    }
+
+    <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">int</span> <span style="color: #0000FF">size</span>() {
+        <span style="color: #008000; font-weight: bold">return</span> pi.<span style="color: #7D9029">length</span>;
+    }
+
+    <span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">static</span> <span style="color: #B00040">void</span> <span style="color: #0000FF">main</span>(String<span style="color: #666666">[]</span> args) {
+        <span style="color: #008000; font-weight: bold">new</span> JavaPiList().<span style="color: #7D9029">get</span>(<span style="color: #666666">3</span>);
+        <span style="color: #408080; font-style: italic">// =&gt; 12:34:56.789 [main] INFO JavaPiList - Getting index 3</span>
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Ported JRuby Usage of Logback</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #008000">require</span> <span style="color: #BA2121">&#39;jruby/core_ext&#39;</span> <span style="color: #408080; font-style: italic"># required for become_java! to do anything useful</span>
+<span style="color: #008000">require</span> <span style="color: #BA2121">&#39;maven_require&#39;</span>
+<span style="color: #408080; font-style: italic"># load latest version of logback into this Ruby session</span>
+maven_require <span style="color: #BA2121">&quot;ch.qos.logback:logback-classic:RELEASE&quot;</span>
+
+<span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">RubyPiList</span> <span style="color: #666666">&lt;</span> java<span style="color: #666666">.</span>util<span style="color: #666666">.</span>AbstractList
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">initialize</span>
+        <span style="color: #19177C">@pi</span> <span style="color: #666666">=</span> <span style="color: #666666">[3</span>,<span style="color: #666666">1</span>,<span style="color: #666666">4</span>,<span style="color: #666666">1</span>,<span style="color: #666666">5</span>,<span style="color: #666666">9]</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">get</span>(index)
+        <span style="color: #880000">Logger</span><span style="color: #666666">.</span>info(<span style="color: #BA2121">&quot;Getting index {}&quot;</span>, index)
+        <span style="color: #008000; font-weight: bold">return</span> <span style="color: #19177C">@pi</span><span style="color: #666666">[</span>index<span style="color: #666666">]</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">size</span>()
+        <span style="color: #19177C">@pi</span><span style="color: #666666">.</span>length
+    <span style="color: #008000; font-weight: bold">end</span>
+    <span style="color: #408080; font-style: italic"># Ensure this class is reified</span>
+    become_java!
+    <span style="color: #880000">Logger</span> <span style="color: #666666">=</span> org<span style="color: #666666">.</span>slf4j<span style="color: #666666">.</span>LoggerFactory<span style="color: #666666">.</span>get_logger(<span style="color: #880000">RubyPiList</span><span style="color: #666666">.</span>java_class)
+<span style="color: #008000; font-weight: bold">end</span>
+<span style="color: #880000">RubyPiList</span><span style="color: #666666">.</span>new<span style="color: #666666">.</span>get(<span style="color: #666666">3</span>)
+<span style="color: #408080; font-style: italic"># =&gt; 12:34:56.789 [main] INFO rubyobj.RubyPiList - Getting index 3</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Neat! How is this implemented under the hood in JRuby? We can take a look at the generated classes to find out. But first, we must save the classes generated to a disk somewhere. Luckily, this is easy to do selectively by passing a directory to <code>become_java!</code>, and the generated class will be saved under it:</p>
+</div>
+<div class="listingblock">
+<div class="title">Saving class files</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span>become_java!(<span style="color: #BA2121">&quot;/tmp/jruby-dump-folder&quot;</span>)</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+For some of the examples here I&#8217;ve taken the JVM bytecode generated, and run it through the <a href="https://github.com/JetBrains/intellij-community/tree/master/plugins/java-decompiler/engine">FernFlower</a> decompiler. The code you see may not compile, and those seeking a deeper understanding are encouraged to explore the disassembled JVM bytecode directly. I recommend <a href="https://bytecodeviewer.com/">Bytecode Viewer</a> as it&#8217;s what I used to develop these improvements to JRuby.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Now, we can look at the decompiled MyRubyClass that JRuby generated for us:</p>
+</div>
+<div class="listingblock">
+<div class="title">Generated MyRubyClass (decompiled)</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="java"><span></span><span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">RubyPiList</span> <span style="color: #008000; font-weight: bold">extends</span> AbstractList <span style="color: #008000; font-weight: bold">implements</span> ReifiedJavaProxy {
+   <span style="color: #008000; font-weight: bold">private</span> synthetic <span style="color: #008000; font-weight: bold">final</span> ConcreteJavaProxy <span style="color: #008000; font-weight: bold">this</span>$rubyObject;
+   <span style="color: #408080; font-style: italic">// ...bookkeeping fields snipped...</span>
+   <span style="color: #408080; font-style: italic">// ...constructors snipped...</span>
+
+   <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">int</span> <span style="color: #0000FF">size</span>() {
+      <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">ensureThis</span>(<span style="color: #008000; font-weight: bold">this</span>);
+      <span style="color: #008000; font-weight: bold">return</span> ((Number)<span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">callMethod</span>(<span style="color: #BA2121">&quot;size&quot;</span>, IRubyObject.<span style="color: #7D9029">NULL_ARRAY</span>).<span style="color: #7D9029">toJava</span>(Integer.<span style="color: #7D9029">TYPE</span>)).<span style="color: #7D9029">intValue</span>();
+   }
+
+   <span style="color: #008000; font-weight: bold">public</span> Object <span style="color: #0000FF">get</span>(<span style="color: #B00040">int</span> var1) {
+      <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">ensureThis</span>(<span style="color: #008000; font-weight: bold">this</span>);
+      <span style="color: #008000; font-weight: bold">return</span> (Object)<span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">callMethod</span>(<span style="color: #BA2121">&quot;get&quot;</span>,
+            <span style="color: #008000; font-weight: bold">new</span> IRubyObject<span style="color: #666666">[]</span>{
+                JavaUtil.<span style="color: #7D9029">convertJavaToRuby</span>(ruby, var1)
+            }).<span style="color: #7D9029">toJava</span>(Object.<span style="color: #7D9029">class</span>);
+   }
+   <span style="color: #408080; font-style: italic">// ...bookkeeping methods snipped...</span>
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Here we can see several important facts. First, this is just a proxy for a Ruby class. As the Java class just delegate everything to the Ruby object, all the logic can still be swapped around via monkey patching and it is still dynamic under the hood. The Java class is merely an interface to the Ruby class. Second, there is lots of internal JRuby bookkeeping present, so performance may be lower. Third, all instance variables are not lowered to fields and are still Ruby-private. And fourth, the method signatures were picked up from the superclass.</p>
+</div>
+<div class="paragraph">
+<p>For most JRuby Java integrations this is fine, but sometimes you need to add some more flair to your generated classes. Let us investigate three separate ways to upgrade our integration game with JRuby 9.3.4 improvements to concrete reification:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Java-callable constructors</p>
+</li>
+<li>
+<p>Fields</p>
+</li>
+<li>
+<p>Annotations</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="constructors">2. Constructors</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The first issue I ever filed against JRuby was about the lack of java-callable constructors for java-extending classes (concrete extension), in 2012. One anagram and 8½ years later, it was finally closed in 2021, as my implementation was merged into JRuby 9.3.0. What caused me to file the issue, and still want it done in 2021? JavaFX, or more specifically, the JRuby bindings of JavaFX, JRubyFX. JavaFX is a cross-platform GUI toolkit, and my usual go-to for GUI work when I&#8217;m writing Ruby.</p>
+</div>
+<div class="paragraph">
+<p>One of the features that drew me to JavaFX is SceneBuilder, a drag-and-drop GUI designer that produces a runtime-loadable XML (cleverly called FXML) description of the GUI layout. While it&#8217;s possible to use JavaFX/JRubyFX without FXML (and indeed most of the people using JRubyFX seem to not use it), FXML is very useful. Supporting FXML in JRubyFX was tricky, as the JavaFX <code>FXMLLoader</code> reads the FXML to build classes and set fields. It does this by using reflection to call the no-arg constructor of the named class in the FXML. This is where I ran into trouble in 2012, but is now fixed, as of JRuby 9.3.1 (and utilized in JRubyFX 2.0). If you want to be able to call a constructor from Java for a Ruby class extending a Java class, now you can do so, and it&#8217;s configurable:</p>
+</div>
+<div class="listingblock">
+<div class="title">Simple Construction Example</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #008000">require</span> <span style="color: #BA2121">&#39;jruby/core_ext&#39;</span> <span style="color: #408080; font-style: italic"># required for become_java! to do anything useful</span>
+
+<span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">ChaosParrot</span> <span style="color: #666666">&lt;</span> java<span style="color: #666666">.</span>io<span style="color: #666666">.</span>InputStream
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">initialize</span>()
+        <span style="color: #008000">puts</span> <span style="color: #BA2121">&quot;ChaosParrot was initialized&quot;</span>
+        <span style="color: #19177C">@percent</span> <span style="color: #666666">=</span> <span style="color: #666666">0.1</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+
+    java_signature <span style="color: #BA2121">&#39;void setPercent(float)&#39;</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">setPercent</span>(pct)
+        <span style="color: #008000">puts</span> <span style="color: #BA2121">&quot;Got percent: </span><span style="color: #BB6688; font-weight: bold">#{</span>pct<span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121">&quot;</span>
+        <span style="color: #19177C">@percent</span> <span style="color: #666666">=</span> pct
+    <span style="color: #008000; font-weight: bold">end</span>
+
+    java_signature <span style="color: #BA2121">&#39;void setStream(java.io.InputStream)&#39;</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">setStream</span>(underlying)
+        <span style="color: #008000">puts</span> <span style="color: #BA2121">&quot;Got new stream&quot;</span>
+        <span style="color: #19177C">@underlying</span> <span style="color: #666666">=</span> underlying
+    <span style="color: #008000; font-weight: bold">end</span>
+
+    <span style="color: #408080; font-style: italic"># no java_signature necessary here, as it uses the inherited signatures</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">read</span>(<span style="color: #666666">*</span>args)
+        <span style="color: #408080; font-style: italic"># for other signatures, use parent</span>
+        <span style="color: #008000; font-weight: bold">return</span> <span style="color: #008000; font-weight: bold">super</span><span style="color: #666666">.</span>read(<span style="color: #666666">*</span>args) <span style="color: #008000; font-weight: bold">unless</span> args<span style="color: #666666">.</span>empty?
+
+        <span style="color: #408080; font-style: italic"># corrupt bytes randomly, as configured</span>
+        <span style="color: #008000; font-weight: bold">return</span> <span style="color: #008000">rand</span>(<span style="color: #666666">256</span>) <span style="color: #666666">^</span> <span style="color: #19177C">@underlying</span><span style="color: #666666">.</span>read <span style="color: #008000; font-weight: bold">if</span> <span style="color: #008000">rand</span> <span style="color: #666666">&lt;=</span> <span style="color: #19177C">@percent</span>
+        <span style="color: #19177C">@underlying</span><span style="color: #666666">.</span>read
+    <span style="color: #008000; font-weight: bold">end</span>
+
+    <span style="color: #008000">new</span> <span style="color: #408080; font-style: italic"># if you directly `new` the class, become_java!</span>
+    <span style="color: #408080; font-style: italic"># is called if necessary for concrete-extension classes</span>
+    <span style="color: #408080; font-style: italic"># but you can always ensure it by calling become_java! directly</span>
+<span style="color: #008000; font-weight: bold">end</span>
+<span style="color: #408080; font-style: italic"># call the constructor via Java Reflection API&#39;s</span>
+us <span style="color: #666666">=</span> <span style="color: #880000">ChaosParrot</span><span style="color: #666666">.</span>java_class<span style="color: #666666">.</span>constructor()<span style="color: #666666">.</span>newInstance
+<span style="color: #408080; font-style: italic"># =&gt; ChaosParrot was initialized</span>
+us <span style="color: #408080; font-style: italic"># =&gt; #&lt;ChaosParrot:0x1f2e3d4c&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This means that you can now use any Java object-construction libraries.  Here is a contrived continuation of this example using Spring to construct Ruby objects:</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+We use <code>ChaosParrot.java_class.name</code> to get the full name, as the <code>rubyobj</code> package is not considered stable release-to-release.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+We also must pass in an appropriate classloader. See below for issues related to classloading reified classes (both concrete and normal) from java.
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Instantiating Ruby Objects from Java via Spring</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #408080; font-style: italic"># ChaosParrot code from above continues here</span>
+maven_require <span style="color: #BA2121">&#39;org.springframework&#39;</span>, <span style="color: #BA2121">&#39;spring-context&#39;</span>,<span style="color: #BA2121">&#39;5.3.16&#39;</span>
+<span style="color: #008000">require</span> <span style="color: #BA2121">&#39;tempfile&#39;</span>
+<span style="color: #880000">Tempfile</span><span style="color: #666666">.</span>open(<span style="color: #BA2121">&quot;beans.xml&quot;</span>) <span style="color: #008000; font-weight: bold">do</span> <span style="color: #666666">|</span>beanxml<span style="color: #666666">|</span>
+    <span style="color: #880000">File</span><span style="color: #666666">.</span>write(beanxml<span style="color: #666666">.</span>path, <span style="color: #008000">%Q|&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
+<span style="color: #008000">        &lt;beans xmlns=&quot;http://www.springframework.org/schema/beans&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot; xsi:schemaLocation=&quot;http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd&quot;&gt;</span>
+<span style="color: #008000">            &lt;bean id=&quot;myparrot&quot; class=&quot;</span><span style="color: #BB6688; font-weight: bold">#{</span><span style="color: #880000">ChaosParrot</span><span style="color: #666666">.</span>java_class<span style="color: #666666">.</span>name<span style="color: #BB6688; font-weight: bold">}</span><span style="color: #008000">&quot;&gt;</span>
+<span style="color: #008000">                &lt;property name=&quot;percent&quot; value=&quot;0.25&quot;/&gt;</span>
+<span style="color: #008000">            &lt;/bean&gt;</span>
+<span style="color: #008000">        &lt;/beans&gt;|</span>)
+    ctx <span style="color: #666666">=</span> org<span style="color: #666666">.</span>springframework<span style="color: #666666">.</span>context<span style="color: #666666">.</span>support<span style="color: #666666">.</span>FileSystemXmlApplicationContext<span style="color: #666666">.</span>new
+    ctx<span style="color: #666666">.</span>config_location <span style="color: #666666">=</span> <span style="color: #BA2121">&quot;file:</span><span style="color: #BB6688; font-weight: bold">#{</span>beanxml<span style="color: #666666">.</span>path<span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121">&quot;</span>
+    ctx<span style="color: #666666">.</span>class_loader <span style="color: #666666">=</span> <span style="color: #880000">ChaosParrot</span><span style="color: #666666">.</span>java_class<span style="color: #666666">.</span>class_loader <span style="color: #408080; font-style: italic"># See below about classloaders</span>
+    ctx<span style="color: #666666">.</span>refresh <span style="color: #408080; font-style: italic"># load the beans!</span>
+    <span style="color: #408080; font-style: italic"># =&gt; ChaosParrot was initialized</span>
+    <span style="color: #408080; font-style: italic"># =&gt; Got percent: 0.25</span>
+
+    <span style="color: #408080; font-style: italic"># ...do stuff with ctx</span>
+<span style="color: #008000; font-weight: bold">end</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+Getting type conversion errors about IRubyObject? Ensure you required <code>require 'jruby/core_ext'</code> as it is a no-op by default for <code>jrubyc</code> compatibility.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Dumping the generated class shows us the method that JRuby generates:</p>
+</div>
+<div class="listingblock">
+<div class="title">Generated ChaosParrot Structure (disassembled with javap)</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="java"><span></span><span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">rubyobj</span>.<span style="color: #7D9029">ChaosParrot</span> <span style="color: #008000; font-weight: bold">extends</span> InputStream <span style="color: #008000; font-weight: bold">implements</span> ReifiedJavaProxy {
+  <span style="color: #408080; font-style: italic">// Java-reflection constructor</span>
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #0000FF">ChaosParrot</span>();
+
+  <span style="color: #408080; font-style: italic">// Internal JRuby constructors (::new)</span>
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #0000FF">ChaosParrot</span>(Ruby, RubyClass);
+  <span style="color: #008000; font-weight: bold">public</span> synthetic <span style="color: #0000FF">ChaosParrot</span>(ConcreteJavaProxy, IRubyObject<span style="color: #666666">[]</span>, Block, Ruby, RubyClass);
+  <span style="color: #008000; font-weight: bold">protected</span> synthetic <span style="color: #0000FF">ChaosParrot</span>(ConcreteJavaProxy, <span style="color: #B00040">boolean</span>, IRubyObject<span style="color: #666666">[]</span>, Block, Ruby, RubyClass);
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">static</span> {};
+
+  <span style="color: #408080; font-style: italic">// Our new methods</span>
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">void</span> <span style="color: #0000FF">setStream</span>(InputStream);
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">void</span> <span style="color: #0000FF">setPercent</span>(<span style="color: #B00040">float</span>);
+
+  <span style="color: #408080; font-style: italic">// Overrides for read (all overloads always added)</span>
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">int</span> <span style="color: #0000FF">read</span>();
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">int</span> <span style="color: #0000FF">read</span>(<span style="color: #B00040">byte</span>...);
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">int</span> <span style="color: #0000FF">read</span>(<span style="color: #B00040">byte</span><span style="color: #666666">[]</span>, <span style="color: #B00040">int</span>, <span style="color: #B00040">int</span>);
+
+  <span style="color: #408080; font-style: italic">// bridge methods so super works (Internal JRuby implementation details)</span>
+  <span style="color: #408080; font-style: italic">// Note only 2 here, as read() is abstract in the parent</span>
+  <span style="color: #008000; font-weight: bold">public</span> bridge synthetic <span style="color: #B00040">int</span> __super$<span style="border: 1px solid #FF0000">\</span><span style="color: #666666">=</span>rubyobj<span style="border: 1px solid #FF0000">\</span>,ChaosParrot$read(<span style="color: #B00040">byte</span><span style="color: #666666">[]</span>);
+  <span style="color: #008000; font-weight: bold">public</span> bridge synthetic <span style="color: #B00040">int</span> __super$<span style="border: 1px solid #FF0000">\</span><span style="color: #666666">=</span>rubyobj<span style="border: 1px solid #FF0000">\</span>,ChaosParrot$read(<span style="color: #B00040">byte</span><span style="color: #666666">[]</span>, <span style="color: #B00040">int</span>, <span style="color: #B00040">int</span>);
+
+  <span style="color: #408080; font-style: italic">// internal JRuby API (ReifiedJavaProxy)</span>
+  <span style="color: #008000; font-weight: bold">public</span> synthetic IRubyObject <span style="color: #0000FF">___jruby$rubyObject</span>();
+  <span style="color: #008000; font-weight: bold">public</span> synthetic JavaProxyClass <span style="color: #0000FF">___jruby$proxyClass</span>();
+}</code></pre>
+</div>
+</div>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+Because internally JRuby has the proxy Java class, as well as the Ruby class, and it needs to initialize both of them no matter if initialized from Ruby code via <code>::new</code> or Java code via <code>newInstance</code>, a limitation currently applies to <code>super(&#8230;&#8203;)</code> calls in the configured constructor method (typically <code>initialize</code>, see below): there can be at most one <code>super(&#8230;&#8203;)</code>, with no conditionals over it.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+If you are curious how these two halves are initialized together, <a href="https://github.com/jruby/jruby/pull/6422#issuecomment-748414730">this initialization diagram</a> is a good place to start
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>One potentially tricky thing, is that of which method to call in initialization. This is particularly acute for JavaFX as the "fxml is loaded" method is called <code>initialize</code>, shadowing the Ruby constructor of the same name. Luckily, the new constructor support in 9.3 allows reconfiguring many aspects of this interaction, owing to the fact that it is merely a proxy generator for Java.</p>
+</div>
+<div class="paragraph">
+<p>In the example below, the method defined as <code>#initialize</code> is never used, as <code>::new</code> has been redefined (via <code>configure_java_class</code>) to call <code>#java_ctor</code>, and calling <code>.initialize</code> from Java is re-routed to <code>#normal_method</code>. By default JRuby, excludes <code>#initialize</code> from generation, so we must explicitly include it here.</p>
+</div>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+Class configuration using <code>configure_java_class</code> is only fully enabled for concrete extension (aka Ruby-subclassing-Java) as of 9.3.4. Non-concrete extension (no Java superclasses) is not fully enabled. There is a bug about this <a href="https://github.com/jruby/jruby/issues/7122">issue #7122</a>.
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Configuring Java Proxy Class Generation Parameters</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #008000">require</span> <span style="color: #BA2121">&#39;jruby/core_ext&#39;</span> <span style="color: #408080; font-style: italic"># required for become_java! to do anything useful</span>
+
+<span style="color: #408080; font-style: italic"># configuring classes only works for concrete classes right now (JRuby 9.3.4)</span>
+<span style="color: #408080; font-style: italic"># so we extends java.lang.Object to force this to be a concrete-extended class</span>
+<span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">ConfiguredProxy</span> <span style="color: #666666">&lt;</span> java<span style="color: #666666">.</span>lang<span style="color: #666666">.</span>Object
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">initialize</span>
+        <span style="color: #008000">puts</span> <span style="color: #BA2121">&quot;I shouldn&#39;t be called&quot;</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">java_ctor</span>
+        <span style="color: #008000">puts</span> <span style="color: #BA2121">&quot;The ctor was called&quot;</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">standard_method</span>
+        <span style="color: #008000">puts</span> <span style="color: #BA2121">&quot;The non-ctor was called&quot;</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    configure_java_class(<span style="color: #19177C">ctor_name</span>: <span style="color: #BA2121">&quot;java_ctor&quot;</span>) <span style="color: #008000; font-weight: bold">do</span>
+        dispatch <span style="color: #19177C">:initialize</span>, <span style="color: #19177C">:standard_method</span> <span style="color: #408080; font-style: italic"># java initialize will call standard_method</span>
+        <span style="color: #008000">include</span> <span style="color: #19177C">:initialize</span> <span style="color: #408080; font-style: italic"># excluded by default</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    become_java!
+<span style="color: #008000; font-weight: bold">end</span>
+<span style="color: #880000">ConfiguredProxy</span><span style="color: #666666">.</span>new
+<span style="color: #408080; font-style: italic"># =&gt; The ctor was called</span>
+inst <span style="color: #666666">=</span> <span style="color: #880000">ConfiguredProxy</span><span style="color: #666666">.</span>java_class<span style="color: #666666">.</span>constructor()<span style="color: #666666">.</span>newInstance
+<span style="color: #408080; font-style: italic"># =&gt; The ctor was called</span>
+<span style="color: #880000">ConfiguredProxy</span><span style="color: #666666">.</span>java_class<span style="color: #666666">.</span>get_method(<span style="color: #BA2121">&quot;initialize&quot;</span>)<span style="color: #666666">.</span>invoke(inst)
+<span style="color: #408080; font-style: italic"># =&gt; The non-ctor was called</span>
+
+<span style="color: #408080; font-style: italic"># you can stil call standard_method directly too, since</span>
+<span style="color: #408080; font-style: italic"># it wasn&#39;t excluded or redefined</span>
+<span style="color: #880000">ConfiguredProxy</span><span style="color: #666666">.</span>java_class<span style="color: #666666">.</span>get_method(<span style="color: #BA2121">&quot;standard_method&quot;</span>)<span style="color: #666666">.</span>invoke(inst)
+<span style="color: #408080; font-style: italic"># =&gt; The non-ctor was called</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Decompiling the result shows that some of our changes (<code>dispatch</code>, <code>include</code>) are baked into the class file itself, while others (<code>ctor_name</code>) can still be edited after class generation:</p>
+</div>
+<div class="listingblock">
+<div class="title">Generated ConfiguredProxy (decompiled)</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="java"><span></span><span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">ConfiguredProxy</span> <span style="color: #008000; font-weight: bold">implements</span> ReifiedJavaProxy {
+   <span style="color: #408080; font-style: italic">// ...bookkeeping fields snipped... (see end for full listing)</span>
+   <span style="color: #408080; font-style: italic">// ...some constructors snipped...</span>
+
+   <span style="color: #408080; font-style: italic">// Java no-arg constructor</span>
+   <span style="color: #008000; font-weight: bold">public</span> <span style="color: #0000FF">ConfiguredProxy</span>() {
+      <span style="color: #008000; font-weight: bold">this</span>(<span style="color: #008000; font-weight: bold">new</span> ConcreteJavaProxy(ruby, rubyClass), <span style="color: #008000; font-weight: bold">false</span>, IRubyObject.<span style="color: #7D9029">NULL_ARRAY</span>, Block.<span style="color: #7D9029">NULL_BLOCK</span>, ruby, rubyClass);
+   }
+
+   <span style="color: #008000; font-weight: bold">protected</span> synthetic <span style="color: #0000FF">ConfiguredProxy</span>(ConcreteJavaProxy var1, <span style="color: #B00040">boolean</span> var2, IRubyObject<span style="color: #666666">[]</span> var3, Block var4, Ruby var5, RubyClass var6) {
+      <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span> <span style="color: #666666">=</span> var1;
+      <span style="color: #408080; font-style: italic">// the splitInitialized &amp; finishInitialize calls here will invoke whichever</span>
+      <span style="color: #408080; font-style: italic">// ruby method is configured as :ctor_name in configure_java_class</span>
+      SplitCtorData state <span style="color: #666666">=</span> var1.<span style="color: #7D9029">splitInitialized</span>(var2 <span style="color: #666666">?</span> rubyClass : var6, var3, var4, <span style="color: #008000; font-weight: bold">this</span>$rubyCtorCache);
+      <span style="color: #408080; font-style: italic">// snipped bookkeeping...</span>
+         <span style="color: #008000; font-weight: bold">super</span>();
+         var1.<span style="color: #7D9029">setObject</span>(<span style="color: #008000; font-weight: bold">this</span>);
+         var1.<span style="color: #7D9029">finishInitialize</span>(state);
+      <span style="color: #408080; font-style: italic">// snipped bookkeeping...</span>
+   }
+
+   <span style="color: #408080; font-style: italic">// Since we didn&#39;t specify the signature, it returns</span>
+   <span style="color: #408080; font-style: italic">// Ruby objects as the default</span>
+   <span style="color: #008000; font-weight: bold">public</span> IRubyObject <span style="color: #0000FF">standard_method</span>() {
+      <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">ensureThis</span>(<span style="color: #008000; font-weight: bold">this</span>);
+      <span style="color: #008000; font-weight: bold">return</span> <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">callMethod</span>(<span style="color: #BA2121">&quot;standard_method&quot;</span>);
+   }
+
+   <span style="color: #408080; font-style: italic">// the configured dispatch is seen here, dispatching</span>
+   <span style="color: #408080; font-style: italic">// to a differently-named method</span>
+   <span style="color: #008000; font-weight: bold">public</span> IRubyObject <span style="color: #0000FF">initialize</span>() {
+      <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">ensureThis</span>(<span style="color: #008000; font-weight: bold">this</span>);
+      <span style="color: #008000; font-weight: bold">return</span> <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">callMethod</span>(<span style="color: #BA2121">&quot;standard_method&quot;</span>);
+   }
+
+   <span style="color: #408080; font-style: italic">// No dispatch configuration, uses same name</span>
+   <span style="color: #008000; font-weight: bold">public</span> IRubyObject <span style="color: #0000FF">java_ctor</span>() {
+      <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">ensureThis</span>(<span style="color: #008000; font-weight: bold">this</span>);
+      <span style="color: #008000; font-weight: bold">return</span> <span style="color: #008000; font-weight: bold">this</span>.<span style="color: #7D9029">this$rubyObject</span>.<span style="color: #7D9029">callMethod</span>(<span style="color: #BA2121">&quot;java_ctor&quot;</span>);
+   }
+
+   <span style="color: #408080; font-style: italic">// ...bookkeeping methods snipped...</span>
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="fields">3. Fields</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Java/JVM fields and Ruby instance variables are different: fields are fixed, and can be public, protected, or private, while instance variables are only protected, but are dynamic. Nonetheless, when porting Java code to Ruby, or vice-versa, they are typically replaced with each other. JRuby, however, exposes fields differently than instance variables. Fields are accessed by named getters and setters on self, and not related to instance variables (you can set a field and an instance variable of the same name to different values!). If you are accessing existing Java objects this is one thing, but how do you create a Java field on a reified Ruby object, whether concrete-extended or not? With <code>java_field</code>. Here is a contrived example using Jackson, a JSON serializer for Java (Please use one of the ruby serializers in real code, this is just an example of a java library reading fields):</p>
+</div>
+<div class="listingblock">
+<div class="title">Serializing Reified Ruby Classes with Jackson</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #008000">require</span> <span style="color: #BA2121">&#39;jruby/core_ext&#39;</span> <span style="color: #408080; font-style: italic"># required for become_java! to do anything useful</span>
+maven_require <span style="color: #BA2121">&#39;com.fasterxml.jackson.core:jackson-databind&#39;</span>
+
+<span style="color: #408080; font-style: italic"># If we are a pure ruby class, internal JRuby fields will be present.</span>
+<span style="color: #408080; font-style: italic"># To avoid unnecessary methods and fields on the resulting Java Class,</span>
+<span style="color: #408080; font-style: italic"># we decend from Java Object, not Ruby Object</span>
+<span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">FieldedClass</span> <span style="color: #666666">&lt;</span> java<span style="color: #666666">.</span>lang<span style="color: #666666">.</span>Object
+    java_field <span style="color: #BA2121">&#39;java.lang.String mystr&#39;</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">initialize</span>(mystr <span style="color: #666666">=</span> <span style="color: #008000">nil</span>)
+        <span style="color: #008000; font-weight: bold">super</span>() <span style="color: #408080; font-style: italic"># j.l.Object requires no args</span>
+        <span style="color: #008000">self</span><span style="color: #666666">.</span>mystr <span style="color: #666666">=</span> mystr <span style="color: #008000; font-weight: bold">if</span> mystr <span style="color: #666666">!=</span> <span style="color: #008000">nil</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    become_java!
+<span style="color: #008000; font-weight: bold">end</span>
+om <span style="color: #666666">=</span> com<span style="color: #666666">.</span>fasterxml<span style="color: #666666">.</span>jackson<span style="color: #666666">.</span>databind<span style="color: #666666">.</span>ObjectMapper<span style="color: #666666">.</span>new
+str <span style="color: #666666">=</span> om<span style="color: #666666">.</span>write_value_as_string(<span style="color: #880000">FieldedClass</span><span style="color: #666666">.</span>new(<span style="color: #BA2121">&quot;foo&quot;</span>))
+<span style="color: #408080; font-style: italic"># =&gt; &quot;{\&quot;mystr\&quot;: \&quot;foo\&quot;}</span>
+om<span style="color: #666666">.</span>read_value(str, <span style="color: #880000">FieldedClass</span><span style="color: #666666">.</span>java_class)<span style="color: #666666">.</span>mystr
+<span style="color: #408080; font-style: italic"># =&gt; &quot;foo&quot;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This isn&#8217;t very idiomatic Ruby. If we are willing to sacrifice some of the expected semantics of ruby instance variables, we can, as of JRuby 9.3.4, tie the instance variables and the fields together. Instead of being able to store two different values in <code>@name</code> and <code>self.name</code>, they are aliases</p>
+</div>
+<div class="listingblock">
+<div class="title">Serializing Reified Ruby Classes with Jackson, using Instance Variables</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">InstancedClass</span> <span style="color: #666666">&lt;</span> java<span style="color: #666666">.</span>lang<span style="color: #666666">.</span>Object
+    java_field <span style="color: #BA2121">&#39;java.lang.String mystr&#39;</span>, <span style="color: #19177C">instance_variable</span>: <span style="color: #008000">true</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">initialize</span>(mystr <span style="color: #666666">=</span> <span style="color: #008000">nil</span>)
+        <span style="color: #008000; font-weight: bold">super</span>()
+        <span style="color: #19177C">@mystr</span> <span style="color: #666666">=</span> mystr <span style="color: #008000; font-weight: bold">if</span> mystr <span style="color: #666666">!=</span> <span style="color: #008000">nil</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    become_java!
+<span style="color: #008000; font-weight: bold">end</span>
+str <span style="color: #666666">=</span> om<span style="color: #666666">.</span>write_value_as_string(<span style="color: #880000">InstancedClass</span><span style="color: #666666">.</span>new(<span style="color: #BA2121">&quot;foo&quot;</span>))
+<span style="color: #408080; font-style: italic"># =&gt; &quot;{\&quot;mystr\&quot;: \&quot;foo\&quot;}</span>
+om<span style="color: #666666">.</span>read_value(str, <span style="color: #880000">InstancedClass</span><span style="color: #666666">.</span>java_class)<span style="color: #666666">.</span>mystr
+<span style="color: #408080; font-style: italic"># =&gt; &quot;foo&quot;</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+<code>@name.equals?(@name)</code> may be false in some cases when using this configuration
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+A frozen object can have all instance variables using this configuration modified. Instance variables using this configuration  do not respect if an object is frozen or not.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock caution">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-caution" title="Caution"></i>
+</td>
+<td class="content">
+JVM semantics, not Ruby Semantics, apply when using this configuration
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Disassembling, we see this has no affect on the generated proxy class:</p>
+</div>
+<div class="listingblock">
+<div class="title">Generated InstancedClass &amp; FieldedClass Structure (disassembled with javap)</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="java"><span></span><span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">FieldedClass</span> <span style="color: #008000; font-weight: bold">implements</span> ReifiedJavaProxy {
+  <span style="color: #008000; font-weight: bold">public</span> java.<span style="color: #7D9029">lang</span>.<span style="color: #7D9029">String</span> mystr;
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #0000FF">FieldedClass</span>();
+  <span style="color: #408080; font-style: italic">// snipped internal ctors and internal JRuby API methods</span>
+}
+<span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">InstancedClass</span> <span style="color: #008000; font-weight: bold">implements</span> ReifiedJavaProxy {
+  <span style="color: #008000; font-weight: bold">public</span> java.<span style="color: #7D9029">lang</span>.<span style="color: #7D9029">String</span> mystr;
+  <span style="color: #008000; font-weight: bold">public</span> <span style="color: #0000FF">InstancedClass</span>();
+  <span style="color: #408080; font-style: italic">// snipped internal ctors and internal JRuby API methods</span>
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="annotations">4. Annotations</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>JRuby 9.3 partly unified the annotation API between <code>become_java!</code> on a pure-ruby class, a concrete-extension Ruby class, and using <code>jrubyc</code> (class-methods only, package and class annotations are not mutually supported). Now the class methods work equally well and with the same syntax:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">MyClass</span>
+    java_field <span style="color: #BA2121">&#39;full.Type name&#39;</span>
+    java_field <span style="color: #BA2121">&#39;@full.Annotation() full.Type name&#39;</span>
+
+    java_signature <span style="color: #BA2121">&#39;full.Type myMethod(primitive, full.Type)&#39;</span>
+    java_signature <span style="color: #BA2121">&#39;@full.Annotation() full.Type myMethod(primitive, full.Type)&#39;</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">myMethod</span>(<span style="color: #666666">*</span>args)
+        <span style="color: #408080; font-style: italic">#...</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+<span style="color: #008000; font-weight: bold">end</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We can extend the example from the previous section to have annotations that affect the behavior of Java libraries:</p>
+</div>
+<div class="listingblock">
+<div class="title">Annotations on Generated Java Classes with Jackson</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span>maven_require <span style="color: #BA2121">&#39;com.fasterxml.jackson.core&#39;</span>, <span style="color: #BA2121">&#39;jackson-databind&#39;</span>
+
+<span style="color: #408080; font-style: italic"># we extend the Java Object for the same reasons as the previuos example</span>
+<span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">AnnotatedClass</span> <span style="color: #666666">&lt;</span> java<span style="color: #666666">.</span>lang<span style="color: #666666">.</span>Object
+    <span style="color: #408080; font-style: italic"># Note we can&#39;t use java_annotation ouside of the class, that is jrubyc only</span>
+    add_class_annotations com<span style="color: #666666">.</span>fasterxml<span style="color: #666666">.</span>jackson<span style="color: #666666">.</span>annotation<span style="color: #666666">.</span>JsonRootName <span style="color: #666666">=&gt;</span> {<span style="color: #BA2121">&quot;value&quot;</span> <span style="color: #666666">=&gt;</span> <span style="color: #BA2121">&quot;user&quot;</span>}
+
+    java_field <span style="color: #BA2121">&#39;@com.fasterxml.jackson.annotation.JsonIgnore java.lang.String mystr&#39;</span>
+    java_field <span style="color: #BA2121">&#39;int myint&#39;</span>
+
+    java_signature <span style="color: #BA2121">&#39;@com.fasterxml.jackson.annotation.JsonSetter(value=&quot;phantom&quot;) void printItOut(boolean)&#39;</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">printItOut</span>(<span style="color: #008000">p</span>)
+        <span style="color: #008000">puts</span> <span style="color: #BA2121">&quot;Phantom set to: </span><span style="color: #BB6688; font-weight: bold">#{</span><span style="color: #008000">p</span><span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121">&quot;</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    become_java!
+<span style="color: #008000; font-weight: bold">end</span>
+om <span style="color: #666666">=</span> com<span style="color: #666666">.</span>fasterxml<span style="color: #666666">.</span>jackson<span style="color: #666666">.</span>databind<span style="color: #666666">.</span>ObjectMapper<span style="color: #666666">.</span>new
+om<span style="color: #666666">.</span>enable(com<span style="color: #666666">.</span>fasterxml<span style="color: #666666">.</span>jackson<span style="color: #666666">.</span>databind<span style="color: #666666">.</span>SerializationFeature<span style="color: #666666">::</span><span style="color: #880000">WRAP_ROOT_VALUE</span>)
+om<span style="color: #666666">.</span>write_value_as_string(<span style="color: #880000">AnnotatedClass</span><span style="color: #666666">.</span>new<span style="color: #666666">.</span>tap{<span style="color: #666666">|</span>x<span style="color: #666666">|</span>x<span style="color: #666666">.</span>myint<span style="color: #666666">=9</span>})
+<span style="color: #408080; font-style: italic"># =&gt; &quot;{\&quot;user\&quot;:{\&quot;myint\&quot;:9}}&quot;</span>
+ac <span style="color: #666666">=</span> om<span style="color: #666666">.</span>read_value(<span style="color: #BA2121">&#39;{&quot;myint&quot;:314,&quot;phantom&quot;:true}&#39;</span>, <span style="color: #880000">AnnotatedClass</span><span style="color: #666666">.</span>java_class)
+<span style="color: #408080; font-style: italic"># Phantom set to: true</span>
+ac<span style="color: #666666">.</span>myint
+<span style="color: #408080; font-style: italic"># =&gt; 314</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+Can I avoid typing the package name of the class? Not as of JRuby 9.3. It is <a href="https://github.com/jruby/jruby/issues/5486">issue #5486</a>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Examining the generated class, we can see it did annotate as we requested:</p>
+</div>
+<div class="listingblock">
+<div class="title">Generated AnnotatedClass Structure (decompiled)</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="java"><span></span><span style="color: #AA22FF">@JsonRootName</span>(<span style="color: #BA2121">&quot;user&quot;</span>)
+<span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">AnnotatedClass</span> <span style="color: #008000; font-weight: bold">implements</span> ReifiedJavaProxy {
+   <span style="color: #408080; font-style: italic">// snipped private implementation fields</span>
+
+   <span style="color: #AA22FF">@JsonIgnore</span>
+   <span style="color: #008000; font-weight: bold">public</span> String mystr;
+
+   <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">int</span> myint;
+
+   <span style="color: #AA22FF">@JsonSetter</span>(<span style="color: #BA2121">&quot;phantom&quot;</span>)
+   <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">void</span> <span style="color: #0000FF">printItOut</span>(<span style="color: #B00040">boolean</span> var1) {
+      <span style="color: #408080; font-style: italic">// ...</span>
+   }
+   <span style="color: #408080; font-style: italic">// snipped internal JRuby API parts</span>
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="jrubyfx-2-0">5. JRubyFX 2.0</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>After all of these changes in JRuby 9.3.4, the JRubyFX gem can finally dump its FXML hacks and use the existing FXMLLoader by taking advantage of these new features.</p>
+</div>
+<div class="paragraph">
+<p>So, how does JRubyFX use these features for loading FXML?
+Every request for loading FXML starts by us loading the file and pulling out all the expected field names from the <code>fx:id</code> attributes, and the <code>onEvent</code> expected event handlers
+For each of these names, we call java_field with the FXML annotation, field name, and request that the instance variables are mapped to the fields. This makes the API seem more Ruby-like while two copies of variables. Additionally, most of the pitfalls are likely avoided as these instance variables are typically read, not written, once the FXML file has been loaded.
+For each of the event handlers, we define an appropriate event handler method using <code>java_method</code> with the fxml annotation and event handler name
+We configure the class for a Java-accessible constructor
+We call <code>become_java!</code> and pass the concrete-extended reified class off to the JavaFX FXMLLoader</p>
+</div>
+<div class="paragraph">
+<p>As such, users can experience a straightforward integration experience. For example, while the JVM class is a static and unchangeable interface, by defining all the expected methods and fields, user Ruby code can muck with the class as long as those methods stay defined.</p>
+</div>
+<div class="paragraph">
+<p>Here are some snippets of the above features when integrated into JRubyFX use. Plus, some of the interesting bits of the JRubyFX implementation. See the full working example these were taken from under <a href="https://github.com/jruby/jrubyfx/tree/master/samples/contrib/fxmltableview">samples/contrib/fxmltableview</a>.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+I recommend using Zulu+FX JDK builds for JRubyFX as it is pre-packaged with JavaFX, but any JDK with JavaFX should work (Java 8 and later)
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Fragments of fxmlloader JRubyFX example &amp; JRubyFX implementation</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #408080; font-style: italic"># user usage</span>
+<span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">FormattedTableCellFactory</span>
+  <span style="color: #008000">include</span> <span style="color: #880000">Java</span><span style="color: #666666">::</span>javafx<span style="color: #666666">.</span>util<span style="color: #666666">.</span>Callback
+  <span style="color: #008000">include</span> <span style="color: #880000">JRubyFX</span>
+
+  <span style="color: #408080; font-style: italic"># see below for fxml_raw_accessor definition</span>
+  fxml_raw_accessor <span style="color: #19177C">:alignment</span>, <span style="color: #880000">Java</span><span style="color: #666666">::</span>javafx<span style="color: #666666">.</span>scene<span style="color: #666666">.</span>text<span style="color: #666666">.</span>TextAlignment
+  fxml_raw_accessor <span style="color: #19177C">:format</span>, java<span style="color: #666666">.</span>text<span style="color: #666666">.</span>Format
+
+  <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">call</span>(param)
+    cell <span style="color: #666666">=</span> <span style="color: #880000">FormattedTableCellFactory_TableCell</span><span style="color: #666666">.</span>new(<span style="color: #19177C">@format</span>)
+    cell<span style="color: #666666">.</span>setTextAlignment(<span style="color: #19177C">@alignment</span>)
+    <span style="color: #408080; font-style: italic"># ...</span>
+  <span style="color: #008000; font-weight: bold">end</span>
+  <span style="color: #408080; font-style: italic"># ...</span>
+<span style="color: #008000; font-weight: bold">end</span>
+
+<span style="color: #408080; font-style: italic"># library definition</span>
+<span style="color: #008000; font-weight: bold">module</span> <span style="color: #0000FF; font-weight: bold">JRubyFX</span>
+    <span style="color: #408080; font-style: italic"># ...</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">fxml_raw_accessor</span>(symbol_name, type<span style="color: #666666">=</span>java<span style="color: #666666">::</span>lang<span style="color: #666666">::</span><span style="color: #008000">String</span>)
+      <span style="color: #408080; font-style: italic"># ...</span>
+      <span style="color: #408080; font-style: italic"># fieldNameGetType() is an extention to standard bean style</span>
+      <span style="color: #408080; font-style: italic"># getters/setters in JavaFX</span>
+      java_signature <span style="color: #BA2121">&quot;java.lang.Class &quot;</span> <span style="color: #666666">+</span> symbol_name<span style="color: #666666">.</span>id2name <span style="color: #666666">+</span> <span style="color: #BA2121">&quot;GetType()&quot;</span>
+      <span style="color: #008000">send</span>(<span style="color: #19177C">:define_method</span>, symbol_name<span style="color: #666666">.</span>id2name <span style="color: #666666">+</span> <span style="color: #BA2121">&quot;GetType&quot;</span>) <span style="color: #008000; font-weight: bold">do</span>
+        <span style="color: #008000; font-weight: bold">return</span> type<span style="color: #666666">.</span>java_class
+      <span style="color: #008000; font-weight: bold">end</span>
+      <span style="color: #408080; font-style: italic"># define the field as fxml-capable</span>
+      java_field <span style="color: #BA2121">&quot;@javafx.fxml.FXML </span><span style="color: #BB6688; font-weight: bold">#{</span>type<span style="color: #666666">.</span>java_class<span style="color: #666666">.</span>name<span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121"> </span><span style="color: #BB6688; font-weight: bold">#{</span>symbol_name<span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121">&quot;</span>, <span style="color: #19177C">instance_variable</span>: <span style="color: #008000">true</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+<span style="color: #008000; font-weight: bold">end</span>
+
+<span style="color: #408080; font-style: italic"># user usage</span>
+<span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">FXMLTableViewController</span>
+  <span style="color: #008000">include</span> <span style="color: #880000">JRubyFX</span><span style="color: #666666">::</span><span style="color: #880000">Controller</span>
+
+  <span style="color: #408080; font-style: italic"># this method call defines all the methods and fields in the provided file</span>
+  fxml <span style="color: #BA2121">&quot;fxml_tableview.fxml&quot;</span>
+
+  <span style="color: #408080; font-style: italic"># event handler from the fxml</span>
+  <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">addPerson</span>
+    <span style="color: #408080; font-style: italic"># the tableview and the fields are</span>
+    <span style="color: #408080; font-style: italic"># accessable as instance variables</span>
+    data <span style="color: #666666">=</span> <span style="color: #19177C">@tableView</span><span style="color: #666666">.</span>items
+    data<span style="color: #666666">.</span>add(<span style="color: #880000">Person</span><span style="color: #666666">.</span>new(<span style="color: #19177C">@firstNameField</span><span style="color: #666666">.</span>text, <span style="color: #666666">...</span>))
+
+    <span style="color: #19177C">@firstNameField</span><span style="color: #666666">.</span>text <span style="color: #666666">=</span> <span style="color: #BA2121">&quot;&quot;</span>
+    <span style="color: #408080; font-style: italic"># ...</span>
+  <span style="color: #008000; font-weight: bold">end</span>
+  <span style="color: #408080; font-style: italic"># ...</span>
+<span style="color: #008000; font-weight: bold">end</span>
+
+<span style="color: #408080; font-style: italic"># library definition</span>
+<span style="color: #008000; font-weight: bold">module</span> <span style="color: #0000FF; font-weight: bold">JRubyFX::FxmlHelper</span>
+    <span style="color: #408080; font-style: italic"># ...</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF; font-weight: bold">self</span><span style="color: #666666">.</span><span style="color: #0000FF">transform</span>(clazz, <span style="color: #666666">...</span>) <span style="color: #408080; font-style: italic"># called by fxml in the user code above</span>
+        <span style="color: #408080; font-style: italic"># ...</span>
+        <span style="color: #008000; font-weight: bold">while</span> xmlStreamReader<span style="color: #666666">.</span>hasNext
+            <span style="color: #408080; font-style: italic"># lots of xml processing ...</span>
+
+            <span style="color: #408080; font-style: italic"># if it is an id, save the id and annotate it as injectable by JavaFX. Default to object since the FXMLLoader doesn&#39;t care...</span>
+            <span style="color: #008000; font-weight: bold">if</span> localName <span style="color: #666666">==</span> <span style="color: #BA2121">&quot;id&quot;</span> <span style="color: #AA22FF; font-weight: bold">and</span> prefix <span style="color: #666666">==</span> <span style="color: #880000">FXMLLoader</span><span style="color: #666666">::</span><span style="color: #880000">FX_NAMESPACE_PREFIX</span>
+              clazz<span style="color: #666666">.</span>instance_eval <span style="color: #008000; font-weight: bold">do</span>
+                <span style="color: #408080; font-style: italic"># Note: we could detect the type, but Ruby doesn&#39;t care, and neither does JavaFX&#39;s FXMLLoader</span>
+                java_field <span style="color: #BA2121">&quot;@javafx.fxml.FXML java.lang.Object </span><span style="color: #BB6688; font-weight: bold">#{</span>value<span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121">&quot;</span>, <span style="color: #19177C">instance_variable</span>: <span style="color: #008000">true</span>
+              <span style="color: #008000; font-weight: bold">end</span>
+            <span style="color: #408080; font-style: italic"># otherwise, if it is an event, add a forwarding call</span>
+            <span style="color: #008000; font-weight: bold">elsif</span> localName<span style="color: #666666">.</span>start_with? <span style="color: #BA2121">&quot;on&quot;</span> <span style="color: #AA22FF; font-weight: bold">and</span> value<span style="color: #666666">.</span>start_with? <span style="color: #BA2121">&quot;#&quot;</span>
+              <span style="color: #008000">name</span> <span style="color: #666666">=</span> value<span style="color: #666666">[1..-1]</span> <span style="color: #408080; font-style: italic"># strip hash</span>
+              clazz<span style="color: #666666">.</span>instance_eval <span style="color: #008000; font-weight: bold">do</span>
+                <span style="color: #408080; font-style: italic"># add the fxml signature and correct param count</span>
+                java_signature <span style="color: #BA2121">&quot;@javafx.fxml.FXML void </span><span style="color: #BB6688; font-weight: bold">#{</span><span style="color: #008000">name</span><span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121">(javafx.event.Event)&quot;</span>
+              <span style="color: #008000; font-weight: bold">end</span>
+            <span style="color: #008000; font-weight: bold">end</span>
+            <span style="color: #408080; font-style: italic"># ...</span>
+        <span style="color: #008000; font-weight: bold">end</span>
+        <span style="color: #408080; font-style: italic"># ...</span>
+        clazz<span style="color: #666666">.</span>become_java!
+    <span style="color: #008000; font-weight: bold">end</span>
+<span style="color: #008000; font-weight: bold">end</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">fxmltableview sample FXML selection (fxml_tableview.fxml)</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="xml"><span></span><span style="color: #008000; font-weight: bold">&lt;GridPane</span> <span style="color: #7D9029">alignment=</span><span style="color: #BA2121">&quot;CENTER&quot;</span> <span style="color: #7D9029">hgap=</span><span style="color: #BA2121">&quot;10.0&quot;</span> <span style="color: #7D9029">vgap=</span><span style="color: #BA2121">&quot;10.0&quot;</span> <span style="color: #7D9029">xmlns:fx=</span><span style="color: #BA2121">&quot;http://javafx.com/fxml&quot;</span><span style="color: #008000; font-weight: bold">&gt;</span>
+  <span style="color: #408080; font-style: italic">&lt;!-- ... --&gt;</span>
+  <span style="color: #408080; font-style: italic">&lt;!-- saved in the controller instance variable --&gt;</span>
+  <span style="color: #008000; font-weight: bold">&lt;TableView</span> <span style="color: #7D9029">fx:id=</span><span style="color: #BA2121">&quot;tableView&quot;</span> <span style="color: #7D9029">GridPane.columnIndex=</span><span style="color: #BA2121">&quot;0&quot;</span> <span style="color: #7D9029">GridPane.rowIndex=</span><span style="color: #BA2121">&quot;1&quot;</span><span style="color: #008000; font-weight: bold">&gt;</span>
+    <span style="color: #008000; font-weight: bold">&lt;columns&gt;</span>
+      <span style="color: #008000; font-weight: bold">&lt;TableColumn</span> <span style="color: #7D9029">prefWidth=</span><span style="color: #BA2121">&quot;100.0&quot;</span> <span style="color: #7D9029">text=</span><span style="color: #BA2121">&quot;First Name&quot;</span> <span style="color: #7D9029">fx:id=</span><span style="color: #BA2121">&quot;firstNameColumn&quot;</span><span style="color: #008000; font-weight: bold">&gt;</span>
+        <span style="color: #008000; font-weight: bold">&lt;cellFactory&gt;</span>
+          <span style="color: #408080; font-style: italic">&lt;!-- Build our Ruby class, defined above --&gt;</span>
+          <span style="color: #008000; font-weight: bold">&lt;FormattedTableCellFactory</span> <span style="color: #7D9029">alignment=</span><span style="color: #BA2121">&quot;CENTER&quot;</span> <span style="color: #008000; font-weight: bold">/&gt;</span>
+        <span style="color: #008000; font-weight: bold">&lt;/cellFactory&gt;</span>
+        <span style="color: #408080; font-style: italic">&lt;!-- ... --&gt;</span>
+      <span style="color: #008000; font-weight: bold">&lt;/TableColumn&gt;</span>
+      <span style="color: #408080; font-style: italic">&lt;!-- ... --&gt;</span>
+    <span style="color: #008000; font-weight: bold">&lt;/columns&gt;</span>
+    <span style="color: #408080; font-style: italic">&lt;!-- ... --&gt;</span>
+  <span style="color: #008000; font-weight: bold">&lt;/TableView&gt;</span>
+  <span style="color: #008000; font-weight: bold">&lt;HBox</span> <span style="color: #7D9029">alignment=</span><span style="color: #BA2121">&quot;BOTTOM_RIGHT&quot;</span> <span style="color: #7D9029">spacing=</span><span style="color: #BA2121">&quot;10.0&quot;</span> <span style="color: #7D9029">GridPane.columnIndex=</span><span style="color: #BA2121">&quot;0&quot;</span> <span style="color: #7D9029">GridPane.rowIndex=</span><span style="color: #BA2121">&quot;2&quot;</span><span style="color: #008000; font-weight: bold">&gt;</span>
+    <span style="color: #008000; font-weight: bold">&lt;TextField</span> <span style="color: #7D9029">fx:id=</span><span style="color: #BA2121">&quot;firstNameField&quot;</span> <span style="color: #7D9029">prefWidth=</span><span style="color: #BA2121">&quot;90.0&quot;</span> <span style="color: #7D9029">promptText=</span><span style="color: #BA2121">&quot;First Name&quot;</span> <span style="color: #008000; font-weight: bold">/&gt;</span>
+    <span style="color: #408080; font-style: italic">&lt;!-- ... --&gt;</span>
+    <span style="color: #408080; font-style: italic">&lt;!-- tied to a our controller method --&gt;</span>
+    <span style="color: #008000; font-weight: bold">&lt;Button</span> <span style="color: #7D9029">onAction=</span><span style="color: #BA2121">&quot;#addPerson&quot;</span> <span style="color: #7D9029">text=</span><span style="color: #BA2121">&quot;Add&quot;</span> <span style="color: #008000; font-weight: bold">/&gt;</span>
+  <span style="color: #008000; font-weight: bold">&lt;/HBox&gt;</span>
+<span style="color: #008000; font-weight: bold">&lt;/GridPane&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Decompiling some of these classes, we can see the generated fields, method, constructors, and annotations:</p>
+</div>
+<div class="listingblock">
+<div class="title">Select Decompiled Generated Classes from fxmltableview Sample</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="java"><span></span>
+<span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">FormattedTableCellFactory</span> <span style="color: #008000; font-weight: bold">extends</span> RubyObject <span style="color: #008000; font-weight: bold">implements</span> Reified, Callback {
+   <span style="color: #408080; font-style: italic">// snip...</span>
+   <span style="color: #AA22FF">@FXML</span>
+   <span style="color: #008000; font-weight: bold">public</span> TextAlignment alignment;
+   <span style="color: #AA22FF">@FXML</span>
+   <span style="color: #008000; font-weight: bold">public</span> Format format;
+
+   <span style="color: #008000; font-weight: bold">public</span> <span style="color: #0000FF">FormattedTableCellFactory</span>();
+
+   <span style="color: #008000; font-weight: bold">public</span> TextAlignment <span style="color: #0000FF">getAlignment</span>();
+   <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">void</span> <span style="color: #0000FF">setAlignment</span>(TextAlignment var1);
+   <span style="color: #008000; font-weight: bold">public</span> Class <span style="color: #0000FF">alignmentGetType</span>();
+
+   <span style="color: #008000; font-weight: bold">public</span> Format <span style="color: #0000FF">getFormat</span>();
+   <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">void</span> <span style="color: #0000FF">setFormat</span>(Format var1);
+   <span style="color: #008000; font-weight: bold">public</span> Class <span style="color: #0000FF">formatGetType</span>();
+
+   <span style="color: #408080; font-style: italic">// snip...</span>
+}
+<span style="color: #008000; font-weight: bold">public</span> <span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">FXMLTableViewController</span> <span style="color: #008000; font-weight: bold">extends</span> RubyObject <span style="color: #008000; font-weight: bold">implements</span> Reified {
+   <span style="color: #408080; font-style: italic">// snip...</span>
+   <span style="color: #AA22FF">@FXML</span>
+   <span style="color: #008000; font-weight: bold">public</span> Object tableView;
+   <span style="color: #AA22FF">@FXML</span>
+   <span style="color: #008000; font-weight: bold">public</span> Object firstNameColumn;
+   <span style="color: #AA22FF">@FXML</span>
+   <span style="color: #008000; font-weight: bold">public</span> Object firstNameField;
+   <span style="color: #AA22FF">@FXML</span>
+   <span style="color: #008000; font-weight: bold">public</span> Object lastNameField;
+   <span style="color: #AA22FF">@FXML</span>
+   <span style="color: #008000; font-weight: bold">public</span> Object emailField;
+
+   <span style="color: #408080; font-style: italic">// Event Handler</span>
+   <span style="color: #AA22FF">@FXML</span>
+   <span style="color: #008000; font-weight: bold">public</span> <span style="color: #B00040">void</span> <span style="color: #0000FF">addPerson</span>(Event var1);
+
+   <span style="color: #408080; font-style: italic">// snip...</span>
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="gotchas-classloading-ruby-classes">6. Gotchas: Classloading Ruby Classes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>If you are looking up and building Ruby objects from Java code or libraries, pay attention to the classloaders. As of JRuby 9.3.4, no supported built-in way exists to look up reified Ruby classes from Java. If you only need to build one class, you can do what the above Spring demo did, and pass in the single-class classloader of the reified class: <code>MyClass.java_class.classloader</code>. If you need multiple class lookup, you need to write a new classloader.</p>
+</div>
+<div class="paragraph">
+<p>Here is a slightly modified version of the JRubyFX classloader that may be a helpful jumping off point. Note that you must decide where to "mount" your classes, as the built-in <code>rubyobj</code> is not guaranteed to be stable. This mounts all Ruby classes under "Object":</p>
+</div>
+<div class="listingblock">
+<div class="title">Reified Ruby Classloader for Java</div>
+<div class="content">
+<pre class="pygments highlight" style="background: #f8f8f8;"><code data-lang="ruby"><span></span><span style="color: #408080; font-style: italic"># This is a minimal classloader only for classes, resources not supported</span>
+<span style="color: #008000; font-weight: bold">class</span> <span style="color: #0000FF; font-weight: bold">PolyglotClassLoader</span> <span style="color: #666666">&lt;</span> java<span style="color: #666666">.</span>lang<span style="color: #666666">.</span>ClassLoader
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">initialize</span>()
+      <span style="color: #008000; font-weight: bold">super</span>(<span style="color: #880000">JRuby</span><span style="color: #666666">.</span>runtime<span style="color: #666666">.</span>jruby_class_loader)
+      <span style="color: #19177C">@prefix</span> <span style="color: #666666">=</span> <span style="color: #BA2121">&quot;Object.&quot;</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    java_signature <span style="color: #BA2121">&quot;java.lang.Class findClass(java.lang.String name)&quot;</span>
+    <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">findClass</span>(a)
+      <span style="color: #008000; font-weight: bold">return</span> <span style="color: #008000">nil</span> <span style="color: #008000; font-weight: bold">unless</span> a<span style="color: #666666">.</span>start_with? <span style="color: #19177C">@prefix</span>
+      a <span style="color: #666666">=</span> a<span style="color: #666666">[</span><span style="color: #19177C">@prefix</span><span style="color: #666666">.</span>length<span style="color: #666666">..-1]</span> <span style="color: #408080; font-style: italic"># trim prefix</span>
+      <span style="color: #008000; font-weight: bold">begin</span>
+        <span style="color: #008000; font-weight: bold">return</span> a<span style="color: #666666">.</span>
+            <span style="color: #008000">split</span>(<span style="color: #BA2121">&quot;.&quot;</span>)<span style="color: #666666">.</span>
+            inject(<span style="color: #880000">Object</span>){ <span style="color: #666666">|</span>value, <span style="color: #008000">name</span><span style="color: #666666">|</span>
+                value<span style="color: #666666">.</span>const_get(<span style="color: #008000">name</span>)
+            }<span style="color: #666666">.</span>tap{<span style="color: #666666">|</span>x<span style="color: #666666">|</span>
+                x<span style="color: #666666">.</span>become_java!
+            }<span style="color: #666666">.</span>java_class
+      <span style="color: #008000; font-weight: bold">rescue</span> <span style="color: #880000">NameError</span>
+        <span style="color: #008000; font-weight: bold">raise</span> java<span style="color: #666666">.</span>lang<span style="color: #666666">.</span>ClassNotFoundException<span style="color: #666666">.</span>new(<span style="color: #BA2121">&quot;Could not find Ruby or Java class &#39;</span><span style="color: #BB6688; font-weight: bold">#{</span>a<span style="color: #666666">.</span>gsub(<span style="color: #BB6688">/[.$]/</span>, <span style="color: #BA2121">&quot;::&quot;</span>)<span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121">&#39; or &#39;</span><span style="color: #BB6688; font-weight: bold">#{</span>a<span style="color: #BB6688; font-weight: bold">}</span><span style="color: #BA2121">&#39;&quot;</span>) <span style="color: #408080; font-style: italic"># Must be a java CNF, not a Ruby Name Error</span>
+      <span style="color: #008000; font-weight: bold">end</span>
+    <span style="color: #008000; font-weight: bold">end</span>
+    become_java!
+<span style="color: #008000; font-weight: bold">end</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="conclusion">7. Conclusion</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The new features in 9.3.4 make it much easier to integrate Ruby code with Java code doing lots of reflection. Happy Hacking!</p>
+</div>
+</div>
+</div>
+
+    <div id="disqus_thread"></div>
+    <script>
+      var disqus_shortname  = 'jruby';
+      var disqus_identifier = '/2022/06/jruby-class-extension-9.3';
+      var disqus_title      = 'Generating Java Classes at Runtime with JRuby 9.3.4';
+
+      /* * * DON'T EDIT BELOW THIS LINE * * */
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </section>
+
+  
+</article>
+
+
+  <footer role="contentinfo">
+    <p>All post content is licensed under <a rel="license" href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons &mdash; Attribution 3.0 Unported">Creative Commons Attribution 3.0</a> unless stated otherwise by the author in that post.</p>
+  </footer>
+
+  <script>
+    // google analytics
+    var _gaq=[['_setAccount','UA-764576-26'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.async=1;
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+</body>
+</html>
