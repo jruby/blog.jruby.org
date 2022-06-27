@@ -1,5 +1,5 @@
 = Generating Java Classes at Runtime with JRuby 9.3.4
-Patrick Plenfisch
+Patrick Plenefisch
 :doctype: article
 :encoding: utf-8
 :lang: en
