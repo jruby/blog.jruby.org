@@ -64,7 +64,7 @@ h6 {
 
 article > header hgroup { padding: 0 50px; }
 article > header .vcard { padding: 0 50px; }
-article > section       { padding: 0 50px; max-width: 52em; margin: 0 auto;}
+article > section       { padding: 0 50px; width: 65%; max-width: 52emcalc(var(--content-width) * .75); margin: 0 auto;}
 article > footer        { padding: .5em 50px; }
 /* ...macro */
 
