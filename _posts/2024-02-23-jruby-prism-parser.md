@@ -30,7 +30,7 @@ For those who do not want to read this whole article:
   4. Prism gives us some cool future improvements
 
 The rest of this post will explain the background and why you should care.  For those who want more details about
-Prism specifically then I recommend reading: https://kddnewton.com/2024/01/23/prism.html.  This mentions a lot
+Prism specifically then I recommend reading: [https://kddnewton.com/2024/01/23/prism.html](https://kddnewton.com/2024/01/23/prism.html).  This mentions a lot
 of additional information not covered here like the syntax tooling/APIs it enables.
 
 # Why another parser?
@@ -178,7 +178,7 @@ properly decoding to be valid regexps.  For example, in the Rails console exampl
 comment out part of a single regexp in reline to run to completion.  This will be fixed very soon but it shows both how
 far Prism is (only a single thing commented out) and also that is not quite done yet.
 
-Two sanity CI Rake tasks we run are spec:ruby:fast and test:mri:core.  These two suites hit enough tests to give us
+Two smoke test Rake tasks we run are spec:ruby:fast and test:mri:core.  These two suites hit enough tests to give us
 confidence that language and Ruby core libraries are working.  Here are the results using Prism (with our current
 parser both of these would be 0F/0E):
 
@@ -275,7 +275,7 @@ time.
 ## Web Assembly (Chicory)
 
 I mentioned how many projects have contributed to Prism and one cool option which happened as a result is that
-Prism is compiled to web assembly (wasm).  The Java world has a project called Chicory which can run wasm in Pure-Java.
+Prism is compiled to web assembly (wasm).  The Java world has a project called [Chicory](https://github.com/dylibso/chicory) which can run wasm in Pure-Java.
 JRuby and Chicory have worked together to demonstrate us being able to run using a wasm build of Prism.  That
 works today (albeit as a WIP on a branch).
 
