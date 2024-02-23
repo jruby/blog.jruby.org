@@ -5,7 +5,12 @@ author: Thomas E. Enebo
 email: tom.enebo@gmail.com
 ---
 
-# Introduction
+# JRuby Prism - A new parser for a new era
+
+Thomas E. Enebo - Feb 23, 2024
+
+
+## Introduction
 
 JRuby has added support for the new backend parser [Prism](https://github.com/ruby/prism/) via the 
 gem: [jruby-prism-parser](https://rubygems.org/gems/jruby-prism-parser).  Installing this
