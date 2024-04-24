@@ -11,7 +11,7 @@ JRuby has added support for the new backend parser [Prism](https://github.com/ru
 gem: [jruby-prism-parser](https://rubygems.org/gems/jruby-prism-parser).  Installing this
 gem will give you access to enable Prism (`export JRUBY_OPTS="-Xparser.prism"`).  At this stage
 jruby-prism-parser is at the technology preview stage but capable of running pretty much everything: Rake, RSpec,
-RubyGems, Bundler, etc...  We plan on this being the default parser when we release our next major JRuby release (9.5)
+RubyGems, Bundler, etc...  We plan on this being the default parser when we release our next major JRuby release (10)
 which will be targeting Ruby 3.3 support.
 
 We encourage all JRuby users to give it a try and help us work out any kinks.  Both in our integration with Prism and
@@ -279,7 +279,7 @@ above ~3x slower than our current parser) but once they can JIT/AOT compile wasm
 the C speed.
 
 This will give us an escape from maintaining a second parser so platforms which cannot call into a C library (or
-compile Prism) will continue to work.  Luckily, for JRuby users, JRuby 9.5 will still ship with our old parser
+compile Prism) will continue to work.  Luckily, for JRuby users, JRuby 10 will still ship with our old parser
 and Prism.
 
 Soon we will add this integration in so you can `-Xjruby.parser.prism.wasm` in our next major release of JRuby.
