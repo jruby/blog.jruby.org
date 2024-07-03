@@ -51,7 +51,7 @@ For the first time ever, we are offering commercial support for JRuby users arou
 
 [JRuby Pro Support](https://headius.com/jruby-support/pro) provides the basic tier, giving you priority email support from me and pre-release announcements for you and your organization.
 
-[JRuby Enterprise Support](https://headius.com/jruby-support/pro) takes that support to the next level, with priority bug and feature work across all supported platforms. Pricing scales with your needs: a tiered pricing structure that guarantees support for your production, off-the-shelf, embedded, and mobile JRuby applications.
+[JRuby Enterprise Support](https://headius.com/jruby-support/enterprise) takes that support to the next level, with priority bug and feature work across all supported platforms. Pricing scales with your needs: a tiered pricing structure that guarantees support for your production, off-the-shelf, embedded, and mobile JRuby applications.
 
 We're still rolling out pricing and payment, but you can tell us of your interest and requirements today at the [Contact Us page](https://www.headius.com/contact)!
 
